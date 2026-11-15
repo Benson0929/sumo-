@@ -1,0 +1,2723 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070b14; overflow: hidden;
+    font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: #eee; }
+  canvas { display: block; }
+  #hint { position: fixed; left: 16px; top: 12px; font-size: 12px; opacity: .65; line-height: 1.7; max-width: 38vw; }
+  #timer { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 700;
+    font-variant-numeric: tabular-nums; letter-spacing: .05em; text-shadow: 0 0 8px #000; }
+  #hud { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 70px; pointer-events: none; }
+  .card { min-width: 170px; text-align: center; text-shadow: 0 0 10px #000, 0 0 3px #000;
+    background: rgba(0,0,0,.62); border-radius: 6px; padding: 8px 14px 10px; }
+  .card .name { font-size: 13px; letter-spacing: .2em; opacity: .85; }
+  .card .name i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  /* 10 格量表：格數越多越容易被打飛 */
+  .card .gauge { display: flex; gap: 3px; justify-content: center; margin: 8px 0 6px; }
+  .card .gauge span { width: 14px; height: 22px; background: rgba(255,255,255,.12); border-radius: 2px; transform: skewX(-12deg); }
+  .card .gauge span.on { background: #f2efe8; }
+  .card .gauge span.on.mid { background: #ffb347; }
+  .card .gauge span.on.hi { background: #ff4a3a; }
+  .card .gauge.danger span.on { animation: pulse .5s infinite alternate; }
+  @keyframes pulse { to { opacity: .45; } }
+  .card .wins span { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin: 0 4px; border: 2px solid #eee; box-sizing: border-box; }
+  .card .wins span.won { background: #eee; }
+  /* 道場的電影感：四周壓暗、偏冷 */
+  #grade { position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 75% 70% at 50% 52%, rgba(4,8,18,0) 55%, rgba(4,8,18,.55) 100%); }
+  #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .45s ease-out; }
+  #vig { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .12s;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,.75) 100%); }
+  #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    background: #070b14; z-index: 50; transition: opacity .5s; letter-spacing: .3em; }
+  #loading .t { font-size: 44px; font-weight: 800; }
+  #loading .s { font-size: 13px; opacity: .7; }
+  #loading .bar { width: 220px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }
+  #loading .bar i { display: block; height: 100%; width: 0; background: #d8261b; transition: width .3s; }
+  #fps { position: fixed; right: 16px; bottom: 12px; font: 12px/1.4 ui-monospace, monospace; opacity: .7; text-align: right; pointer-events: none; }
+  #msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 64px; font-weight: 800; letter-spacing: .1em; pointer-events: none; opacity: 0;
+    transition: opacity .15s; text-shadow: 0 0 20px #000; text-align: center; white-space: pre-line; }
+  #pause { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; pointer-events: none; text-shadow: 0 0 12px #000, 0 0 4px #000; }
+  #pause.on { display: flex; }
+  #pause .title { font-size: 56px; font-weight: 800; letter-spacing: .3em; }
+  #pause .sub { font-size: 14px; opacity: .85; }
+  #camRail { position: fixed; left: 16px; top: 50%; transform: translateY(-50%); width: 56px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0;
+    background: rgba(20,20,20,.85); border: 1px solid #333; border-radius: 8px; font-size: 11px; user-select: none; }
+  #camRail .cap { opacity: .7; }
+  #camRail button { width: 32px; height: 26px; background: #333; color: #eee; border: 0; border-radius: 4px;
+    cursor: pointer; font-size: 11px; touch-action: none; }
+  #camRail button:active { background: #d8261b; }
+  #camRail .track { position: relative; width: 8px; height: min(260px, 40vh); background: #333; border-radius: 4px;
+    cursor: ns-resize; touch-action: none; }
+  #camRail .track::before { content: ''; position: absolute; inset: 0 -14px; }
+  #camRail .fill { position: absolute; left: 0; right: 0; bottom: 0; background: #d8261b; border-radius: 4px; }
+  #camRail .thumb { position: absolute; left: 50%; width: 22px; height: 18px; margin-left: -11px; background: #eee;
+    border-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  #camRail .val { font-variant-numeric: tabular-nums; opacity: .85; }
+  #panel { position: fixed; top: 16px; right: 16px; width: 240px; max-height: calc(100% - 32px); overflow-y: auto;
+    background: rgba(20,20,20,.85); border: 1px solid #333; border-radius: 8px; padding: 12px 14px; font-size: 12px; box-sizing: border-box; }
+  #panel h3 { margin: 0 0 8px; font-size: 13px; display: flex; justify-content: space-between; }
+  #panel h4 { margin: 12px 0 4px; font-size: 11px; opacity: .6; font-weight: 500; }
+  #panel button { background: #333; color: #eee; border: 0; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 11px; }
+  .row { margin: 6px 0; }
+  .row label { display: flex; justify-content: space-between; }
+  .row input { width: 100%; accent-color: #d8261b; }
+  .camBtns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0 4px; }
+  #panel .camBtns button { padding: 6px 0; font-size: 12px; user-select: none; touch-action: none; }
+  #panel .camBtns button:active { background: #d8261b; }
+  #panel.hidden .body { display: none; }
+  /* 朋友測試版（<body data-build="public">）：藏起開發用的面板、鏡頭軌、FPS；按 H 仍可打開面板 */
+  body[data-build="public"] #panel:not(.open), body[data-build="public"] #camRail { display: none; }
+</style>
+<script type="importmap">
+  { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                 "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body data-build="public">
+<div id="timer">0 － 0</div>
+<div id="hud">
+  <div class="card" id="card0">
+    <div class="name"><i style="background:#e8a07a"></i>你</div>
+    <div class="gauge"></div>
+    <div class="wins"></div>
+  </div>
+  <div class="card" id="card1">
+    <div class="name"><i style="background:#5b82c0"></i>CPU</div>
+    <div class="gauge"></div>
+    <div class="wins"></div>
+  </div>
+</div>
+<div id="hint">
+  方向鍵 移動（快按兩下 + D = 突進）　·　W 跳躍（空中再按 = 上升技）　·　D 攻擊（連按連段／空中迴旋踢）<br>
+  A 重擊（按住蓄力，可用方向鍵轉向；空中為下墜重擊）　·　S 翻滾　·　空白鍵 嘲諷（按住繼續跳）<br>
+  抓邊後自動攀爬，期間可先按 W／D／S 決定上來方式　|　P 暫停　·　R 重新開始　·　H 面板
+</div>
+<div id="grade"></div>
+<div id="vig"></div>
+<div id="flash"></div>
+<div id="msg"></div>
+<div id="fps"></div>
+<div id="loading"><div class="t">SUMO</div><div class="bar"><i></i></div><div class="s">載入中…</div></div>
+<div id="camRail" title="鏡頭高度：拖動、滾輪或按住 ▲▼（Q / E）">
+  <div class="cap">鏡頭高度</div>
+  <button data-d="1">▲</button>
+  <div class="track"><div class="fill"></div><div class="thumb"></div></div>
+  <button data-d="-1">▼</button>
+  <div class="val" id="camYVal"></div>
+</div>
+<div id="pause">
+  <div class="title">暫停</div>
+  <div class="sub">按 P 或 Esc 繼續</div>
+</div>
+<div id="panel" class="hidden">
+  <h3>調整 <button id="resetParams">預設值</button></h3>
+  <div class="body"><div id="sliders"></div></div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+// =====================================================================
+// 可調參數
+// =====================================================================
+const DEFAULTS = {
+  accel: 30, damping: 4, airControl: 0.5, jumpPower: 9.5, airG: 24,
+  gravity: 9.8, tiltGain: 0.04, tiltMax: 0.14, tiltStiff: 25, tiltDamp: 6, tiltKB: 1.5, landKick: 0.12,
+  bearPerEdge: 8, cornerHit: 60, collapseTime: 5, protectTime: 4, collapseAngle: 0.2, collapsePull: 12,
+  kbScale: 1, dmgScale: 1, hitstunScale: 1, blastDist: 9, ledgeWait: 2.4, ledgeSlow: 0.5, roundsToWin: 2,
+  cpuLevel: 4,
+  platW: 13.1, platD: 7.8, thick: 0.35,
+  brightness: 1.75, camY: 18.5, camDist: 27, camZoomMin: 0.72, animAmp: 1.35, resScale: 1.25,
+};
+const CAM_Y_MIN = 1, CAM_Y_MAX = 60;
+const GROUPS = [
+  ['畫面', { resScale: ['畫面解析度（越低越順）', 0.6, 2, 0.05], brightness: ['亮度', 0.2, 2.5, 0.05], camDist: ['鏡頭水平距離 Z / X', 8, 50, 0.5],
+    camZoomMin: ['鏡頭最近距離（越小越近）', 0.4, 1.5, 0.01],
+    animAmp: ['攻擊動作幅度（1 = 原始動作）', 1, 2, 0.05] }],
+  ['戰鬥', {
+    kbScale: ['擊飛力道倍率', 0.5, 2, 0.05], dmgScale: ['傷害倍率', 0.5, 2, 0.05],
+    hitstunScale: ['受擊硬直倍率', 0.5, 2, 0.05], blastDist: ['出界線離平台邊緣的距離', 4, 18, 0.5],
+    ledgeWait: ['抓邊後攀爬時間（秒，期間可被震下）', 0.5, 4, 0.1],
+    ledgeSlow: ['有人掛邊時的遊戲速度（1 = 不放慢）', 0.2, 1, 0.05],
+    roundsToWin: ['贏幾局獲勝（下一場生效）', 1, 3, 1] }],
+  ['CPU', { cpuLevel: ['CPU 等級', 1, 9, 1] }],
+  ['移動', {
+    accel: ['加速度', 10, 60, 1], damping: ['地面阻力', 1, 8, 0.1], airControl: ['空中控制', 0.1, 1, 0.05],
+    jumpPower: ['跳躍力道', 5, 14, 0.5], airG: ['下墜重力', 10, 40, 1] }],
+  ['角落塌陷', {
+    cornerHit: ['重擊累積的壓力', 10, 150, 1], collapseTime: ['塌陷持續（秒）', 1, 10, 0.5],
+    protectTime: ['恢復後的保護時間（秒）', 0, 10, 0.5], collapseAngle: ['塌陷傾斜角度', 0.05, 0.45, 0.01],
+    collapsePull: ['塌陷時往角落拉的力量', 0, 40, 0.5], bearPerEdge: ['每邊扛的人數（畫面）', 3, 12, 1] }],
+  ['平台傾斜', {
+    tiltGain: ['傾斜靈敏度', 0, 0.1, 0.005], tiltMax: ['最大傾斜', 0.05, 0.5, 0.01],
+    tiltKB: ['順著斜坡打的擊飛加成', 0, 4, 0.1], gravity: ['斜面重力', 0, 25, 0.5],
+    tiltStiff: ['反應速度', 4, 80, 1], tiltDamp: ['晃動阻尼', 0.5, 20, 0.5], landKick: ['落地／重擊壓平台', 0, 0.5, 0.01] }],
+  ['平台形狀', {
+    platW: ['左右角長度（半長）', 6, 18, 0.1], platD: ['前後角長度（半長）', 4, 12, 0.1], thick: ['厚度', 0.05, 1, 0.05] }],
+];
+const P = { ...DEFAULTS };
+
+const BODY_R = 0.38;        // 身體互相擠開的半徑
+const MAX_FALL = 13;
+const BLAST_DOWN = 11, BLAST_UP = 17;   // 往下、往上的出界線
+// 出界：四個方向都是「離平台邊緣固定距離」，不再因為前後角比較短就特別容易出局
+const outOfBounds = (x, y, z) => edgeDist(x, z) < -P.blastDist || y < -BLAST_DOWN || y > BLAST_UP;
+const EDGE_HOLD = 0.3;      // 走到邊緣時的保護時間（秒）
+const LEDGE_Y = -2.0;
+// 開場：兩人從天而降（下墜重擊的動作），落地重擊後接 Sumo High Pull 站穩，比賽才開始
+const INTRO = { height: 11, cpuDelay: 0.22, smash: 0.22, pullSpeed: 0.8, after: 0.15, maxTime: 6 };
+const CLIMB_DUR = { up: 0.35, atk: 0.2, roll: 0.2 };   // 攀爬時間到之後，最後一步站上平台的時間（全程無敵）：一般／出擊／翻滾
+const HANG_OFF = { y: -0.31, z: 0.62 };   // 骨架人物掛邊時的位置修正（往下、往平台內）   // 爬上來的時間（全程無敵）：一般／出擊／翻滾       // 抓邊時腳的高度（手剛好搭在平台邊緣）
+const GAUGE_STEP = 15;      // 量表每一格 = 15 點內部受傷值（10 格 = 150）
+
+// 招式表：startup 起手、active 判定、recovery 收招（秒）；bkb 基礎擊飛、kbg 每 1% 增加的擊飛；angle 擊飛仰角
+const MOVES = {
+  // D 系列（light）：距離長、出手快、傷害累積用，擊飛成長低，不太能把人打出去
+  //   whiff：打空時的收招；hs：被打中的人固定的硬直（很短，下一段出手前就恢復，可以用 S 翻滾逃開）
+  jab1:   { startup: .06, active: .07, recovery: .15, whiff: .25, hs: .10, dmg: 4, bkb: 2.2, kbg: .010, angle: 15, reach: 1.45, arc: 1.0, v: 1.2, step: 1.5, next: 'jab2', light: true },
+  jab2:   { startup: .12, active: .07, recovery: .15, whiff: .25, hs: .10, dmg: 4, bkb: 2.2, kbg: .010, angle: 15, reach: 1.45, arc: 1.0, v: 1.2, step: 1.5, next: 'jab3', light: true },
+  jab3:   { startup: .16, active: .09, recovery: .28, whiff: .40, dmg: 7,  bkb: 5.5, kbg: .03,  angle: 35, reach: 1.6,  arc: 1.0, v: 1.2, step: 2.5, light: true },
+  // 突進（快速按兩下方向鍵 + D）：往那個方向衝出去，把人往前推飛一段
+  dash:   { startup: .08, active: .16, recovery: .32, whiff: .45, dmg: 6, bkb: 7.5, kbg: .03, angle: 28, reach: 1.35, arc: 1.1, v: 1.2, step: 6.5, light: true },
+  // A 重擊：距離短、起手慢、打空破綻大；低 % 打不遠，高 % 的擊飛成長很高，負責收尾
+  strong: { startup: .16, active: .10, recovery: .30, whiff: .40, dmg: 11, dmgMax: 17, bkb: 4.5, kbg: .13, kbgMax: .16, angle: 38,
+            reach: 1.2, arc: 0.9, v: 1.3, step: 0.6, chargeMax: 1.0, stomp: 1 },
+  air:    { startup: .07, active: .22, recovery: .16, dmg: 7,  bkb: 5,   kbg: .05,  angle: 38, reach: 1.35, arc: Math.PI, v: 1.3, light: true },
+  slam:   { startup: .20, active: 9,   recovery: .36, dmg: 12, bkb: 7.5, kbg: .09,  angle: 65, reach: 1.3,  arc: Math.PI, v: 1.6, yOff: -0.5, plunge: -18, stomp: 2.5 },
+  taunt:  { startup: 0, active: 99, recovery: 0, min: 1.2 },   // 嘲諷：至少跳 1.2 秒，按住空白鍵就繼續跳；沒有攻擊判定，被打會中斷
+  getupAtk: { startup: .03, active: .12, recovery: .30, dmg: 7, bkb: 8.5, kbg: .03, angle: 32, reach: 1.8, arc: 1.5, v: 1.2, light: true },   // 從邊緣爬上來的同時出一擊，把守邊的人打退
+  shake:  { dmg: 15, bkb: 6, kbg: .04, angle: 48 },   // 被震飛：量表加一整格（15），之後更容易被打飛   // 下墜重擊震到掛邊的人：把他往外打飛
+  upSpec: { startup: .05, active: .32, recovery: .12, dmg: 6,  bkb: 6,   kbg: .05,  angle: 72, reach: 1.2,  arc: Math.PI, v: 1.5, yOff: 0.5, rise: 15 },
+  grab:   { startup: .10, active: .07, recovery: .36, reach: 1.15, arc: 0.8, v: 1.0, grab: true },
+  throw:  { dmg: 8, bkb: 8.5, kbg: .06, angle: 42 },
+};
+
+// =====================================================================
+// 場景
+// =====================================================================
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));   // 高解析度螢幕不用到 2 倍，省下大量繪製（可在面板調整）
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070b14);          // 道場：深藍黑的空間
+scene.fog = new THREE.Fog(0x070b14, 42, 105);
+
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+const CAM_AZIM = 45 * Math.PI / 180;
+const CAM_BASE = new THREE.Vector3();
+let camLookY = 0, aspectK = 1;
+function updateCamBase() {
+  CAM_BASE.set(Math.sin(CAM_AZIM) * P.camDist, P.camY, Math.cos(CAM_AZIM) * P.camDist);
+  const elevDeg = Math.atan2(P.camY, P.camDist) * 180 / Math.PI;
+  camLookY = Math.max(0, 2.4 - (elevDeg - 20) * 0.1);
+}
+
+const hemi = new THREE.HemisphereLight(0xd4def5, 0x14161e, 1);     // 偏冷的環境光（參考道場畫面）
+const fill = new THREE.DirectionalLight(0xe4ecff, 1);
+fill.position.set(12, 8, 12);
+scene.add(hemi, fill);
+const spot = new THREE.SpotLight(0xfff7f0, 1, 80, Math.PI / 5.2, 0.9, 2);   // 頂光：柔和的大光圈，中間亮、往邊緣暗下去
+spot.position.set(2, 24, 2);
+spot.castShadow = true;
+spot.shadow.mapSize.set(2048, 2048);
+spot.shadow.bias = -0.0004;
+scene.add(spot, spot.target);
+// 環境光（反射）：一個看不見的深藍色道場空間，天花板有一大片柔和的白光。
+// 所有材質（榻榻米、道服、皮膚）都會反射到它 → 暗部不會死黑、表面有柔和的光澤，比較接近參考的遊戲畫面
+{
+  const env = new THREE.Scene();
+  const room = new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: 0x141c2c, side: THREE.BackSide }));
+  room.position.y = 12; env.add(room);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 3.2, 3.4), side: THREE.DoubleSide }));
+  sky.rotation.x = Math.PI / 2; sky.position.y = 26; env.add(sky);
+  const pm = new THREE.PMREMGenerator(renderer);
+  scene.environment = pm.fromScene(env, 0.04).texture;
+  pm.dispose();
+}
+function applyLighting() {
+  const b = P.brightness;
+  spot.intensity = 2400 * b; hemi.intensity = 0.25 * b; fill.intensity = 0.2 * b;
+}
+applyLighting();
+
+// 平台：菱形。u = 螢幕右方、v = 往鏡頭方向
+const platform = new THREE.Group();
+scene.add(platform);
+const SC = Math.cos(CAM_AZIM), SS = Math.sin(CAM_AZIM);
+const toU = (x, z) => x * SC - z * SS;
+const toV = (x, z) => x * SS + z * SC;
+const fromUV = (u, v) => [u * SC + v * SS, -u * SS + v * SC];
+// 平台形狀：菱形（左右角 platW、前後角 platD，u = 畫面右方、v = 往鏡頭方向）
+// 換成「菱形座標」a = u/W + v/D、b = u/W − v/D 之後，平台就是 |a| ≤ 1、|b| ≤ 1 的正方形：
+//   榻榻米的格線就是 a、b 等於固定值的線（和菱形的邊平行）
+const rhombus = (x, z) => Math.abs(toU(x, z)) / P.platW + Math.abs(toV(x, z)) / P.platD;   // <1 在平台上
+const edgeDist = (x, z) => (1 - rhombus(x, z)) / Math.hypot(1 / P.platW, 1 / P.platD);     // 平台內為正
+// 離 (x, z) 最近的邊緣：邊緣上的點 (px, pz)、往外的方向 (nx, nz)（和那條邊垂直）
+function edgeInfo(x, z) {
+  const u = toU(x, z), v = toV(x, z);
+  const su = Math.sign(u) || 1, sv = Math.sign(v) || 1;
+  let nu = su / P.platW, nv = sv / P.platD;
+  const nl = Math.hypot(nu, nv); nu /= nl; nv /= nl;
+  const d = edgeDist(x, z);                                   // 沿法線走 d 就到邊上
+  let eu = u + nu * d, ev = v + nv * d;
+  // 不要超出那條邊的兩端
+  eu = su * Math.min(P.platW, Math.max(0, su * eu)); ev = sv * Math.min(P.platD, Math.max(0, sv * ev));
+  const [px, pz] = fromUV(eu, ev), [nx, nz] = fromUV(nu, nv);
+  return { px, pz, nx, nz };
+}
+const platScreenW = () => 2 * P.platW;                         // 平台在畫面上的寬度（鏡頭遠近用）
+
+// 平台表面：紅色榻榻米（照真實榻榻米的質感）
+//   每一塊墊子都是獨立的厚塊：邊緣圓潤、墊子之間有小縫
+//   表面：一條條隆起的草蓆紋（跟黑布邊平行），草紋細節來自 ambientCG 的 Tatami001（真實掃描，CC0），染成紅色
+//   兩條邊包著黑色布邊（heri），從表面一路包到側面
+const MAT_N = 5;                         // 5 × 5 塊（格線和菱形的邊平行）
+const MAT_H = 0.14;                      // 墊子厚度
+const MAT_GAP = 0.03;                    // 墊子之間的縫
+const HERI = 0.05;                       // 黑布邊寬度（佔墊子的比例）
+const RIBS = 64;                         // 每塊墊子的草紋條數（比真實少，遠處鏡頭也看得出一條條）
+const slabTop = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, envMapIntensity: 0.45 });   // 反光少一點，紅色才不會被洗淡
+const slabSide = new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 0.9 });   // 墊子底下的平台本體
+function loadTatami() {
+  const img = new Image();
+  img.onload = () => {
+    const N = 1024, n = N * N;
+    const src = document.createElement('canvas'); src.width = src.height = N;
+    const sc = src.getContext('2d'); sc.drawImage(img, 0, 0, N, N);
+    const raw = sc.getImageData(0, 0, N, N).data;
+    let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const H = new Float32Array(n), C = new Float32Array(n * 3), R = new Float32Array(n);
+    const ribPx = N / RIBS, border = Math.round(N * HERI);
+    const ribVar = Array.from({ length: RIBS + 1 }, () => (rnd() - 0.5) * 0.12);
+    for (let y = 0; y < N; y++) {
+      const ph = (y % ribPx) / ribPx;                       // 0 ~ 1：一條草紋從邊到邊
+      const rib = Math.pow(Math.sin(Math.PI * ph), 0.8);    // 中間鼓起、條與條之間凹下
+      const ribTone = ribVar[Math.floor(y / ribPx)];        // 每一條草的顏色略有不同（天然材料）
+      const inHeri = y < border || y >= N - border;
+      for (let x = 0; x < N; x++) {
+        const k = y * N + x, l = (0.3 * raw[k * 4] + 0.59 * raw[k * 4 + 1] + 0.11 * raw[k * 4 + 2]) / 255;
+        if (inHeri) {                                       // 黑布邊：細布紋
+          const cloth = ((x >> 1) + (y >> 1)) % 2 ? 0.02 : -0.02;
+          H[k] = 0.55 + cloth + (rnd() - 0.5) * 0.02;
+          const c = 0.012 + cloth * 0.12 + (rnd() - 0.5) * 0.004;
+          C[k * 3] = c; C[k * 3 + 1] = c; C[k * 3 + 2] = c * 1.15; R[k] = 0.97;
+        } else {
+          const d = (l - 0.62) * 2.2;                       // 原本掃描的細編織
+          H[k] = rib * 0.7 + d * 0.45;
+          const v = Math.max(0, Math.min(1.2, 0.4 + rib * 0.32 + d * 0.65 + ribTone));
+          C[k * 3] = 0.5 * v; C[k * 3 + 1] = 0.035 * v; C[k * 3 + 2] = 0.025 * v;   // 紅色草蓆
+          R[k] = 0.96 - rib * 0.16;                          // 鼓起的地方稍微有光澤（草的自然光澤，不像塑膠）
+        }
+      }
+    }
+    // 布邊內側：一條細細的壓線陰影
+    for (const yb of [border, N - border - 1]) for (let x = 0; x < N; x++) { const k = yb * N + x; H[k] -= 0.3; }
+    const mk = fill => { const cv = document.createElement('canvas'); cv.width = cv.height = N; const c = cv.getContext('2d'); const im = c.createImageData(N, N); fill(im.data); c.putImageData(im, 0, 0); return cv; };
+    const colCv = mk(d => { for (let k = 0; k < n; k++) { d[k * 4] = Math.min(255, Math.pow(C[k * 3], 1 / 2.2) * 255); d[k * 4 + 1] = Math.min(255, Math.pow(C[k * 3 + 1], 1 / 2.2) * 255); d[k * 4 + 2] = Math.min(255, Math.pow(C[k * 3 + 2], 1 / 2.2) * 255); d[k * 4 + 3] = 255; } });
+    const nrmCv = mk(d => {                                 // 高度 → 法線（凹凸）
+      const S = 2.6;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const k = y * N + x;
+        const dx = (H[y * N + Math.min(N - 1, x + 1)] - H[y * N + Math.max(0, x - 1)]) * S;
+        const dy = (H[Math.min(N - 1, y + 1) * N + x] - H[Math.max(0, y - 1) * N + x]) * S;
+        const L = Math.hypot(dx, dy, 1);
+        d[k * 4] = (-dx / L * 0.5 + 0.5) * 255; d[k * 4 + 1] = (dy / L * 0.5 + 0.5) * 255; d[k * 4 + 2] = (1 / L * 0.5 + 0.5) * 255; d[k * 4 + 3] = 255;
+      }
+    });
+    const rghCv = mk(d => { for (let k = 0; k < n; k++) { const r = Math.max(0, Math.min(1, R[k])) * 255; d[k * 4] = d[k * 4 + 1] = d[k * 4 + 2] = r; d[k * 4 + 3] = 255; } });
+    const tex = (cv, srgb) => { const t = new THREE.CanvasTexture(cv); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+    slabTop.map = tex(colCv, true); slabTop.normalMap = tex(nrmCv); slabTop.roughnessMap = tex(rghCv);
+    slabTop.normalScale.set(1, 1); slabTop.needsUpdate = true;
+    loadDone.mat = true;
+  };
+  img.onerror = () => { loadDone.mat = true; };
+  img.src = 'assets/tatami/color.jpg';
+}
+const slab = new THREE.Mesh(undefined, slabSide);              // 平台本體（在墊子底下）
+slab.receiveShadow = slab.castShadow = true;
+platform.add(slab);
+const matsMesh = new THREE.Mesh(undefined, slabTop);           // 25 塊墊子合成一個物件（一次繪製）
+matsMesh.receiveShadow = matsMesh.castShadow = true;
+platform.add(matsMesh);
+// 菱形座標 (a, b) → 平台座標 (x, z)；a、b 都在 −1 ~ 1
+const abToXZ = (a, b) => fromUV(P.platW * (a + b) / 2, P.platD * (a - b) / 2);
+const xzToAB = (x, z) => { const u = toU(x, z) / P.platW, v = toV(x, z) / P.platD; return [u + v, u - v]; };
+function buildMats() {
+  const gradA = Math.hypot(1 / P.platW, 1 / P.platD);           // 1 個世界單位 = 多少 a（或 b）
+  const bevel = 0.035;
+  const shrink = (MAT_GAP / 2 + bevel) * gradA;
+  const step = 2 / MAT_N, parts = [];
+  for (let i = 0; i < MAT_N; i++) for (let j = 0; j < MAT_N; j++) {
+    const a0 = -1 + i * step, b0 = -1 + j * step;
+    const shape = new THREE.Shape();
+    [[a0 + shrink, b0 + shrink], [a0 + step - shrink, b0 + shrink], [a0 + step - shrink, b0 + step - shrink], [a0 + shrink, b0 + step - shrink]]
+      .forEach(([a, b], k) => { const [x, z] = abToXZ(a, b); k ? shape.lineTo(x, -z) : shape.moveTo(x, -z); });
+    const g = new THREE.ExtrudeGeometry(shape, { depth: MAT_H - 2 * 0.03, bevelEnabled: true, bevelThickness: 0.03, bevelSize: bevel, bevelSegments: 3, curveSegments: 1 });
+    g.rotateX(-Math.PI / 2);
+    g.translate(0, -MAT_H + 0.03, 0);
+    // 貼圖座標：每塊墊子自己的 0 ~ 1（從上往下投影，側面會拉伸布邊／草蓆邊緣的顏色）
+    const pos = g.attributes.position, uv = g.attributes.uv;
+    for (let k = 0; k < pos.count; k++) {
+      const [a, b] = xzToAB(pos.getX(k), pos.getZ(k));
+      uv.setXY(k, Math.min(1, Math.max(0, (a - a0) / step)), Math.min(1, Math.max(0, (b - b0) / step)));
+    }
+    g.clearGroups();
+    parts.push(g);
+  }
+  // 合併
+  let total = 0; for (const g of parts) total += g.attributes.position.count;
+  const P3 = new Float32Array(total * 3), N3 = new Float32Array(total * 3), U2 = new Float32Array(total * 2);
+  let o = 0;
+  for (const g of parts) {
+    const gi = g.index ? g.toNonIndexed() : g;
+    P3.set(gi.attributes.position.array, o * 3); N3.set(gi.attributes.normal.array, o * 3); U2.set(gi.attributes.uv.array, o * 2);
+    o += gi.attributes.position.count;
+  }
+  const m = new THREE.BufferGeometry();
+  m.setAttribute('position', new THREE.BufferAttribute(P3.subarray(0, o * 3), 3));
+  m.setAttribute('normal', new THREE.BufferAttribute(N3.subarray(0, o * 3), 3));
+  m.setAttribute('uv', new THREE.BufferAttribute(U2.subarray(0, o * 2), 2));
+  if (matsMesh.geometry) matsMesh.geometry.dispose();
+  matsMesh.geometry = m;
+}
+function buildSlab() {
+  const shape = new THREE.Shape();
+  [[P.platW, 0], [0, -P.platD], [-P.platW, 0], [0, P.platD]].forEach(([u, v], i) => {
+    const [x, z] = fromUV(u, v);
+    i ? shape.lineTo(x, -z) : shape.moveTo(x, -z);
+  });
+  const depth = Math.max(0.05, P.thick - MAT_H);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, -MAT_H - depth, 0);                           // 墊子底下
+  if (slab.geometry) slab.geometry.dispose();
+  slab.geometry = geo;
+  buildMats();
+}
+buildSlab();
+loadTatami();
+
+// =====================================================================
+// 角色骨架
+// =====================================================================
+// 角色面向自己的 +Z。肢體往 -Y 垂下：rotation.x 為負 = 往前抬；脊椎 rotation.x 為正 = 前傾。
+const LEG = 0.46, FOOT_H = 0.08, UPPER_ARM = 0.3, FORE_ARM = 0.28, BODY_Y = 1.0;
+
+function limb(parent, len, radius, mat) {
+  const pivot = new THREE.Group();
+  parent.add(pivot);
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(radius, Math.max(0.01, len - 2 * radius), 6, 12), mat);
+  m.position.y = -len / 2;
+  m.castShadow = true;
+  pivot.add(m);
+  return pivot;
+}
+
+function makeFighter(o) {
+  const g = new THREE.Group();
+  const M = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75 });
+  const skin = M(o.skin), top = M(o.top), bottom = M(o.bottom), shoe = M(o.shoe), hair = M(o.hair);
+  const mats = [skin, top, bottom, shoe, hair];
+  const sh = m => { m.castShadow = true; return m; };
+
+  const body = new THREE.Group();      // 翻滾、被打飛時整個身體繞這裡旋轉
+  body.position.y = BODY_Y;
+  g.add(body);
+  const hips = new THREE.Group();
+  body.add(hips);
+  hips.add(sh(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.2, 0.24), bottom)));
+
+  const legs = [-1, 1].map(s => {
+    const thigh = limb(hips, LEG, 0.12, bottom);
+    thigh.position.set(s * 0.11, -0.04, 0);
+    const shin = limb(thigh, LEG, 0.11, bottom);
+    shin.position.y = -LEG;
+    const foot = new THREE.Group();
+    foot.position.y = -LEG;
+    shin.add(foot);
+    const sole = sh(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.09, 0.28), shoe));
+    sole.position.set(0, -0.035, 0.06);
+    foot.add(sole);
+    return { s, thigh, shin, foot };
+  });
+
+  const spine = new THREE.Group();
+  spine.position.y = 0.06;
+  hips.add(spine);
+  const torso = sh(new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.26, 6, 14), top));
+  torso.position.y = 0.26; torso.scale.set(1.05, 1, 0.75);
+  spine.add(torso);
+  const neck = new THREE.Group();
+  neck.position.y = 0.52;
+  spine.add(neck);
+  const head = sh(new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), skin));
+  head.position.y = 0.15; head.scale.set(0.9, 1.05, 0.95);
+  neck.add(head);
+  const hairCap = sh(new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair));
+  hairCap.position.set(0, 0.17, -0.015); hairCap.scale.set(1.05, 1.1, 1.05);
+  neck.add(hairCap);
+
+  const arms = [-1, 1].map(s => {
+    const shoulder = limb(spine, UPPER_ARM, 0.07, top);
+    shoulder.position.set(s * 0.25, 0.44, 0);
+    const elbow = limb(shoulder, FORE_ARM, 0.06, top);
+    elbow.position.y = -UPPER_ARM;
+    const hand = sh(new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), skin));
+    hand.position.y = -FORE_ARM;
+    elbow.add(hand);
+    return { s, shoulder, elbow };
+  });
+
+  // 防禦罩：耐久越低越小
+  const bubble = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16),
+    new THREE.MeshBasicMaterial({ color: o.accent, transparent: true, opacity: 0.3, depthWrite: false }));
+  bubble.position.y = 0.95; bubble.visible = false;
+  g.add(bubble);
+
+  platform.add(g);
+  return {
+    name: o.name, mesh: g, accent: o.accent, weight: o.weight || 1, look: o, model: null, hitSeq: 0,
+    rig: { body, hips, spine, neck, legs, arms, bubble }, mats, glow: 0,
+    x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0, yaw: 0, ground: true,
+    pct: 0, wins: 0, out: false, dead: 0,
+    airJumps: 1, specUsed: false, dodgeUsed: false, helpless: false,
+    move: null, hitstun: 0, dizzy: 0, lag: 0, invuln: 0,
+    shield: 100, shielding: false, shieldStun: 0,
+    roll: null, dodge: null, ledge: null, ledgeCd: 0, grabbedBy: null,
+    walk: 0, spin: 0, hitT: 0, hitX: 0, hitZ: 0, landT: 0, trailT: 0, opp: null,
+    edgeHold: 0, ledgeCount: 0, closeCall: false,
+  };
+}
+const player = makeFighter({ name: '你', gi: 0xffffff, skin: 0xc99a78, top: 0x7a3a2c, bottom: 0x8d8a84, shoe: 0x141414, hair: 0xb08a3c, accent: 0xe8a07a });
+const cpu = makeFighter({ name: 'CPU', gi: 0x8fa8e0, skin: 0xa8795a, top: 0x1d2a44, bottom: 0x2c2c2e, shoe: 0x0c0c0c, hair: 0x161616, accent: 0x5b82c0 });
+player.opp = cpu; cpu.opp = player;
+const fighters = [player, cpu];
+
+// =====================================================================
+// =====================================================================
+// 扛平台的人
+//   他們是畫面效果，不參與平台的物理；只有「角落塌陷」會反映在他們身上。
+// =====================================================================
+const BEAR_S = 1.25;                       // 扛的人比選手高大一些
+const bearers = [];
+const giBear = { ready: false, src: null, rest: null };
+// 載入進度：角色動作、扛平台的人、榻榻米都好了才開始比賽（第一次在網路上開啟要下載約 15 MB）
+const loadDone = { rig: false, bear: false, mat: false, shown: false, t0: performance.now() };   // 道服版扛人模型（見下方）
+const bearGroup = new THREE.Group();
+bearGroup.matrixWorldAutoUpdate = false;   // 效能：扛平台的人自己更新位置，渲染時不用再走一遍
+scene.add(bearGroup);
+const bearGeo = {
+  thigh: new THREE.CapsuleGeometry(0.12, LEG - 0.24, 4, 8),
+  shin: new THREE.CapsuleGeometry(0.1, LEG - 0.2, 4, 8),
+  upper: new THREE.CapsuleGeometry(0.075, UPPER_ARM - 0.15, 4, 8),
+  fore: new THREE.CapsuleGeometry(0.065, FORE_ARM - 0.13, 4, 8),
+  torso: new THREE.CapsuleGeometry(0.22, 0.24, 4, 10),
+  head: new THREE.SphereGeometry(0.12, 12, 8),
+  hair: new THREE.SphereGeometry(0.13, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5),
+  hand: new THREE.SphereGeometry(0.06, 8, 6),
+  foot: new THREE.BoxGeometry(0.12, 0.08, 0.26),
+  cloth: new THREE.BoxGeometry(0.4, 0.24, 0.27),
+};
+const BEAR_SKINS = [0xc99a78, 0xb5865f, 0xa8795a, 0xd4a585, 0x8d5f42, 0x9c6b4c];
+const BEAR_HAIR = [0x161616, 0x2a1d14, 0x161616, 0xd2691e, 0x3fa7d6, 0xe0c070, 0x161616];
+const clothMat = new THREE.MeshStandardMaterial({ color: 0xeeeeea, roughness: 0.9 });
+const hairMats = BEAR_HAIR.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+
+// 效能：扛平台的人不再一個零件一個物件（32 人 × 16 件 = 512 次繪製），
+// 改成每種零件一個 InstancedMesh（共 10 次繪製）。骨架仍然用看不見的 Object3D 組成、照常擺姿勢，
+// 每格把每個零件的位置複製到對應的 instance。
+let bearSlots = [];                        // { obj, kind, b }
+function bearSlot(parent, kind, b) {
+  const o = new THREE.Object3D();
+  parent.add(o);
+  bearSlots.push({ obj: o, kind, b });
+  return o;
+}
+function bearLimb(parent, kind, len, b) {
+  const pivot = new THREE.Group();
+  parent.add(pivot);
+  const m = bearSlot(pivot, kind, b);
+  m.position.y = -len / 2;
+  return pivot;
+}
+function makeBearer() {
+  const b = { skinColor: new THREE.Color(BEAR_SKINS[Math.floor(Math.random() * BEAR_SKINS.length)]),
+    hairColor: new THREE.Color(BEAR_HAIR[Math.floor(Math.random() * BEAR_HAIR.length)]), glow: 0 };
+  const skin = 'skin';
+  const root = new THREE.Group();
+  const hips = new THREE.Group();
+  root.add(hips);
+  bearSlot(hips, 'cloth', b);                                    // 兜襠布
+  const legs = [-1, 1].map(s => {
+    const thigh = bearLimb(hips, 'thigh', LEG, b);
+    thigh.position.set(s * 0.12, -0.04, 0);
+    const shin = bearLimb(thigh, 'shin', LEG, b);
+    shin.position.y = -LEG;
+    const foot = new THREE.Group();
+    foot.position.y = -LEG;
+    shin.add(foot);
+    const sole = bearSlot(foot, 'foot', b);
+    sole.position.set(0, -0.03, 0.06);
+    return { s, thigh, shin, foot };
+  });
+  const spine = new THREE.Group();
+  spine.position.y = 0.06;
+  hips.add(spine);
+  const torso = bearSlot(spine, 'torso', b);
+  torso.position.y = 0.26; torso.scale.set(1.15, 1, 0.85);
+  const neck = new THREE.Group();
+  neck.position.y = 0.52;
+  spine.add(neck);
+  const head = bearSlot(neck, 'head', b);
+  head.position.y = 0.14;
+  const hair = bearSlot(neck, 'hair', b);
+  hair.position.y = 0.16;
+  const arms = [-1, 1].map(s => {
+    const shoulder = bearLimb(spine, 'upper', UPPER_ARM, b);
+    shoulder.position.set(s * 0.27, 0.44, 0);
+    const elbow = bearLimb(shoulder, 'fore', FORE_ARM, b);
+    elbow.position.y = -UPPER_ARM;
+    const hand = bearSlot(elbow, 'hand', b);
+    hand.position.y = -FORE_ARM;
+    return { s, shoulder, elbow };
+  });
+  const sc = BEAR_S * (0.95 + Math.random() * 0.1);
+  root.scale.setScalar(sc);
+  bearGroup.add(root);
+  return Object.assign(b, { root, sc, rig: { hips, spine, neck, legs, arms },
+    x: 0, z: 0, yaw: 0, give: 0.12, load: 0, phase: Math.random() * 10 });   // give / load：目前的蹲低與手肘彎曲（平滑用）
+}
+
+// 沿菱形四條邊排一圈人，面向外側
+const bearSkinMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.65 });
+const bearHairMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8 });
+let bearInst = {};                          // kind → { mesh, slots }
+function buildBearerInstances() {
+  bearGroup.updateMatrixWorld(true);
+  for (const k in bearInst) { scene.remove(bearInst[k].mesh); bearInst[k].mesh.dispose(); }
+  bearInst = {};
+  for (const sl of bearSlots) (bearInst[sl.kind] ||= { slots: [] }).slots.push(sl);
+  for (const k in bearInst) {
+    const I = bearInst[k], mat = k === 'cloth' ? clothMat : k === 'hair' ? bearHairMat : bearSkinMat;
+    I.mesh = new THREE.InstancedMesh(bearGeo[k], mat, I.slots.length);
+    I.mesh.frustumCulled = false;            // instance 分散在整個平台四周，不用整體的包圍盒判斷
+    if (k !== 'cloth') I.slots.forEach((sl, i) => I.mesh.setColorAt(i, k === 'hair' ? sl.b.hairColor : sl.b.skinColor));
+    scene.add(I.mesh);
+  }
+}
+const _glowC = new THREE.Color(0xff3010), _tmpC = new THREE.Color();
+function updateBearerInstances() {
+  for (let bi = bearTick; bi < bearers.length; bi += 2) bearers[bi].root.updateMatrixWorld(true);   // 只更新這一格動過的人
+  for (const k in bearInst) {
+    const I = bearInst[k], skin = k !== 'cloth' && k !== 'hair';
+    I.slots.forEach((sl, i) => {
+      I.mesh.setMatrixAt(i, sl.obj.matrixWorld);
+      if (skin) I.mesh.setColorAt(i, _tmpC.copy(sl.b.skinColor).lerp(_glowC, Math.min(0.75, sl.b.glow * 1.3)));   // 越吃力越紅
+    });
+    I.mesh.instanceMatrix.needsUpdate = true;
+    if (skin && I.mesh.instanceColor) I.mesh.instanceColor.needsUpdate = true;
+  }
+}
+function buildBearers() {
+  for (const b of bearers) bearGroup.remove(b.root);
+  bearers.length = 0; bearSlots = [];
+  const C = [[P.platW, 0], [0, -P.platD], [-P.platW, 0], [0, P.platD]];   // 菱形四個角（u, v）
+  let avgLen = 0; for (let e = 0; e < 4; e++) avgLen += Math.hypot(C[(e + 1) % 4][0] - C[e][0], C[(e + 1) % 4][1] - C[e][1]) / 4;   // 平均邊長
+  for (let e = 0; e < 4; e++) {
+    const [ua, va] = C[e], [ub, vb] = C[(e + 1) % 4];
+    const mu = (ua + ub) / 2, mv = (va + vb) / 2;
+    let nu = Math.sign(mu) / P.platW, nv = Math.sign(mv) / P.platD;   // 邊的往外方向
+    const nl = Math.hypot(nu, nv); nu /= nl; nv /= nl;
+    const [nx, nz] = fromUV(nu, nv);
+    const n = Math.max(2, Math.round(P.bearPerEdge * Math.hypot(ub - ua, vb - va) / avgLen));   // 長邊人多、短邊人少
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const [x, z] = fromUV(ua + (ub - ua) * t, va + (vb - va) * t);
+      const b = makeBearer();
+      b.x = x - nx * 0.05; b.z = z - nz * 0.05;
+      b.u = toU(b.x, b.z); b.v = toV(b.x, b.z);
+      b.yaw = Math.atan2(nx, nz) + (Math.random() - 0.5) * 0.3;
+      b.nx = nx; b.nz = nz;
+      bearers.push(b);
+    }
+  }
+  buildBearerInstances();
+  placeCorners();
+  if (giBear.ready) attachGiBearers();
+}
+// ---- 四個角的壓力與塌陷 ----
+//   重擊、下墜重擊、被打飛摔落在角落附近會累積壓力；一陣子沒被攻擊會慢慢消退。
+//   壓力滿了那一角的人跪倒，平台往那一角大幅傾斜 collapseTime 秒，之後被頂回來，並有保護時間。
+const CORNER_R = 7;                         // 影響範圍（離角的距離）
+const corners = [0, 1, 2, 3].map(i => ({ i, x: 0, z: 0, dx: 0, dz: 0, p: 0, quiet: 0, down: 0, guard: 0 }));
+function placeCorners() {
+  const C = [[P.platW, 0], [0, -P.platD], [-P.platW, 0], [0, P.platD]];   // 右、遠、左、近
+  corners.forEach((c, i) => {
+    [c.x, c.z] = fromUV(C[i][0], C[i][1]);
+    const l = Math.hypot(c.x, c.z) || 1; c.dx = c.x / l; c.dz = c.z / l;
+  });
+}
+function resetBearers() {
+  placeCorners();
+  for (const c of corners) Object.assign(c, { p: 0, quiet: 0, down: 0, guard: 0 });
+}
+const cornerW = (c, x, z) => Math.max(0, 1 - Math.hypot(c.x - x, c.z - z) / CORNER_R);
+function hurtBearers(x, z, amt) {
+  if (!(amt > 0) || game.state !== 'play') return;
+  for (const c of corners) {
+    const w = cornerW(c, x, z);
+    if (w <= 0 || c.down > 0 || c.guard > 0) continue;
+    c.p += amt * P.cornerHit * w;
+    c.quiet = 0;
+    if (c.p >= 100) collapse(c);
+  }
+}
+function collapse(c) {
+  c.p = 100; c.down = P.collapseTime;
+  // 瞬間往那一角倒：直接給平台一個很大的角速度
+  tilt.vz += -c.dx * P.collapseAngle * 14;
+  tilt.vx +=  c.dz * P.collapseAngle * 14;
+  tilt.vy -= 3;
+  shake = Math.max(shake, 0.6); hitStop = Math.max(hitStop, 0.06);
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2;
+    puff(c.x * 0.92, -0.2, c.z * 0.92, { color: 0xb8aea0, size: 0.35, life: 0.8, grow: 2.5, opacity: 0.45,
+      vx: Math.cos(a) * 3, vy: 1 + Math.random() * 2, vz: Math.sin(a) * 3 });
+  }
+}
+function recover(c) {
+  c.p = 0; c.down = 0; c.guard = P.protectTime;
+  for (const b of bearers) { const w = cornerW(c, b.x, b.z); if (w > 0) b.joltV = (b.joltV || 0) - 2.2 * w; }   // 一起往上頂
+  // 一起把平台頂回來：站在那一角附近的人被彈起來、往中間推
+  for (const f of fighters) {
+    const w = cornerW(c, f.x, f.z);
+    if (w > 0 && f.ground && f.dead <= 0 && !f.out) {
+      f.ground = false; f.y = 0.02; f.vy = 4 + 6 * w;
+      f.vx -= c.dx * 4 * w; f.vz -= c.dz * 4 * w;
+    }
+  }
+  tilt.vz += c.dx * P.collapseAngle * 8;
+  tilt.vx -= c.dz * P.collapseAngle * 8;
+  shake = Math.max(shake, 0.35);
+}
+function stepBearers(dt) {
+  for (const c of corners) {
+    if (c.down > 0) { c.down -= dt; if (c.down <= 0) recover(c); continue; }
+    c.guard = Math.max(0, c.guard - dt);
+    c.quiet += dt;
+    if (c.quiet > 1.5) c.p = Math.max(0, c.p - 12 * dt);       // 一陣子沒被攻擊，壓力慢慢消退
+  }
+}
+// 塌陷中的角對平台傾斜的貢獻（加在選手重量造成的傾斜上）
+function collapseTilt() {
+  let tz = 0, tx = 0, ty = 0;
+  for (const c of corners) if (c.down > 0) {
+    tz += -c.dx * P.collapseAngle; tx += c.dz * P.collapseAngle; ty -= 0.5;
+  }
+  return { tz, tx, ty };
+}
+// 塌陷中的角：附近的人被往角落拉（回傳平台座標的向量）
+function sinkAt(x, z) {
+  let sx = 0, sz = 0;
+  for (const c of corners) if (c.down > 0) {
+    const w = cornerW(c, x, z) * 0.6 + 0.4 * Math.max(0, 1 - Math.hypot(c.x - x, c.z - z) / (CORNER_R * 2));
+    sx += c.dx * w; sz += c.dz * w;
+  }
+  return [sx, sz];
+}
+// 每個扛的人屬於最近的那個角，用來決定他的表演（發抖、發紅、跪倒）
+function bearerCorner(b) {
+  let best = null, bw = 0;
+  for (const c of corners) { const w = Math.max(0, 1 - Math.hypot(c.x - b.x, c.z - b.z) / (CORNER_R + 1)); if (w > bw) { bw = w; best = c; } }
+  return [best, bw];
+}
+
+// 扛的人只是畫面：手永遠貼著平台底面，身體跟著平台上下（背景全黑，看不出地面高低）
+const _bp = new THREE.Vector3();
+let bearTick = 0;
+function animateBearers(dt) {
+  if (giBear.ready) { animateGiBearers(dt); return; }
+  const t = performance.now() / 1000;
+  platform.updateMatrixWorld();
+  bearTick ^= 1;
+  dt *= 2;                                   // 效能：每格只更新一半的人（每人每兩格一次），平滑速度補回來
+  for (let bi = bearTick; bi < bearers.length; bi += 2) {
+    const b = bearers[bi];
+    const r = b.rig;
+    const [c, cw] = bearerCorner(b);
+    const down = c && c.down > 0 && cw > 0.25;
+    const stress = c ? Math.min(1, (c.down > 0 ? 1 : c.p / 100) * cw * 1.4) : 0;
+    const shakeA = (down ? 0.03 : stress * 0.08) * Math.sin(t * 40 + b.phase);
+    // 目標姿勢：平常微蹲撐住；壓力越大蹲越低；塌陷時跪倒、彎腰、手肘彎到底
+    const crouchT = down ? 1.25 : 0.12 + stress * 0.45;
+    const elbowT = down ? 2.2 : stress * 0.5;
+    const k = 1 - Math.exp(-dt * (down ? 14 : 6));
+    b.give += (crouchT - b.give) * k;
+    b.load += (elbowT - b.load) * k;
+    const crouch = b.give, elbow = b.load;
+    const hipY = FOOT_H + 2 * LEG * Math.cos(crouch);
+    const lean = down ? 0.55 : 0.05;
+    const armUp = 0.06 + 0.44 * Math.cos(lean) + UPPER_ARM + FORE_ARM * Math.cos(elbow);
+    platform.localToWorld(_bp.set(b.x, -P.thick, b.z));
+    b.root.position.set(_bp.x, _bp.y - (hipY + armUp) * b.sc, _bp.z);
+    b.root.rotation.y = b.yaw;
+    r.legs.forEach(l => {
+      l.thigh.rotation.x = -crouch + (down ? l.s * 0.3 : 0);
+      l.thigh.rotation.z = l.s * (0.18 + stress * 0.15);
+      l.shin.rotation.x = 2 * crouch;
+      l.foot.rotation.x = -(l.thigh.rotation.x + l.shin.rotation.x);
+    });
+    r.hips.position.y = hipY;
+    r.spine.rotation.x = lean + shakeA;
+    r.spine.rotation.z = shakeA * 0.6;
+    r.neck.rotation.x = down ? 0.6 : -0.45 * stress - 0.05;        // 吃力時仰頭、塌陷時低頭
+    r.arms.forEach(a => {
+      a.shoulder.rotation.x = -Math.PI + 0.12 + shakeA - lean;
+      a.shoulder.rotation.z = a.s * (-0.12 + elbow * 0.25);
+      a.elbow.rotation.x = -elbow;
+    });
+    // 壓力越大身體越紅、閃得越快，讓雙方都看得出哪一角快撐不住
+    b.glow = down ? 0.3 : stress * stress * 0.55 * (0.65 + 0.35 * Math.sin(t * (6 + stress * 14) + b.phase));
+  }
+  updateBearerInstances();
+}
+buildBearers();
+
+// =====================================================================
+// 扛平台的人（道服角色版）
+//   模型：assets/gi_bearer.glb（道服角色的減面版：3600 面、22 根骨頭，給 32 個人用）
+//   動作不是預先做好的動畫，而是每格用「反向運動學（IK）」算出來：
+//     手 → 永遠貼在平台底面；腳 → 永遠踩在地上（地面高度固定）
+//     平台往這邊壓下來 → 自動蹲低、手肘彎；平台抬高 → 站直、手臂伸長
+//   再加上：呼吸、重心左右換腳、東張西望、吃力發抖、被震到膝蓋一軟、角落塌陷時跪倒、恢復時一起往上頂、
+//   有人掛在旁邊的邊緣時抬頭看他
+// =====================================================================
+const giGroup = new THREE.Group();
+scene.add(giGroup);
+const GI_BONES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftShoulder', 'LeftArm', 'LeftForeArm', 'LeftHand',
+  'RightShoulder', 'RightArm', 'RightForeArm', 'RightHand', 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase',
+  'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'];
+const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3(), _v5 = new THREE.Vector3();
+const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
+const _m1 = new THREE.Matrix4(), _m2 = new THREE.Matrix4();
+const UP = new THREE.Vector3(0, 1, 0);
+function giFindBones(root) {
+  const map = {};
+  root.traverse(o => { if (!o.isBone) return; const n = o.name.replace(/^mixamorig[:_]?/, ''); if (GI_BONES.includes(n) && !map[n]) map[n] = o; });
+  return map;
+}
+// 把骨頭在世界座標下繞 axis 轉 angle
+function rotBoneWorld(bone, axis, angle) {
+  bone.getWorldQuaternion(_q1);
+  _q2.setFromAxisAngle(axis, angle).multiply(_q1);
+  bone.parent.getWorldQuaternion(_q3).invert();
+  bone.quaternion.copy(_q3.multiply(_q2));
+  bone.updateMatrixWorld(true);
+}
+// 讓骨頭（從自己指向 childPos 的方向）轉去指向 target
+function aimBone(bone, childPos, target) {
+  bone.getWorldPosition(_v1);
+  _v2.subVectors(childPos, _v1).normalize();
+  _v3.subVectors(target, _v1).normalize();
+  if (_v2.dot(_v3) > 0.99999) return;
+  _q2.setFromUnitVectors(_v2, _v3);
+  bone.getWorldQuaternion(_q1);
+  _q2.multiply(_q1);
+  bone.parent.getWorldQuaternion(_q3).invert();
+  bone.quaternion.copy(_q3.multiply(_q2));
+  bone.updateMatrixWorld(true);
+}
+// 兩節 IK（上臂＋前臂、大腿＋小腿）：末端到 target，中間關節往 pole 方向彎
+const _A = new THREE.Vector3(), _B = new THREE.Vector3(), _C = new THREE.Vector3(), _E = new THREE.Vector3(), _T = new THREE.Vector3(), _D = new THREE.Vector3(), _P = new THREE.Vector3();
+function ik2(a, b, c, target, pole, l1, l2) {
+  a.getWorldPosition(_A);
+  _D.subVectors(target, _A);
+  const dist = Math.min(Math.max(_D.length(), 0.05), (l1 + l2) * 0.999);
+  _D.normalize();
+  const cosA = Math.min(1, Math.max(-1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist)));
+  const sinA = Math.sqrt(1 - cosA * cosA);
+  _P.copy(pole).addScaledVector(_D, -pole.dot(_D)).normalize();
+  _E.copy(_A).addScaledVector(_D, l1 * cosA).addScaledVector(_P, l1 * sinA);
+  b.getWorldPosition(_B);
+  aimBone(a, _B, _E);
+  _T.copy(_A).addScaledVector(_D, dist);
+  c.getWorldPosition(_C);
+  aimBone(b, _C, _T);
+}
+async function loadGiBearers() {
+  try {
+    const gltf = await new GLTFLoader().loadAsync('assets/gi_bearer.glb');
+    const src = gltf.scene;
+    src.updateMatrixWorld(true);
+    const B = giFindBones(src);
+    if (Object.keys(B).length < GI_BONES.length) throw new Error('骨頭不齊：' + Object.keys(B).length);
+    const box = new THREE.Box3().setFromObject(src);
+    const w = n => B[n].getWorldPosition(new THREE.Vector3());
+    // 面向：腳尖在腳跟前面的方向
+    const facing = Math.sign(w('LeftToeBase').z - w('LeftFoot').z) || 1;
+    const R = {
+      height: box.max.y - box.min.y, minY: box.min.y, facing,
+      quat: {}, hipsPos: B.Hips.position.clone(),
+      upper: w('LeftArm').distanceTo(w('LeftForeArm')), fore: w('LeftForeArm').distanceTo(w('LeftHand')),
+      thigh: w('LeftUpLeg').distanceTo(w('LeftLeg')), shin: w('LeftLeg').distanceTo(w('LeftFoot')),
+      shoulderY: w('LeftArm').y - box.min.y, shoulderX: Math.abs(w('LeftArm').x), hipY: w('Hips').y - box.min.y,
+      foot: { L: w('LeftFoot'), R: w('RightFoot') },
+    };
+    for (const n of GI_BONES) R.quat[n] = B[n].quaternion.clone();
+    // 手掌的方向（T 字站姿手心朝下）、手指的方向（前臂 → 手）：記在手的區域座標
+    R.palm = {}; R.finger = {};
+    for (const s of ['Left', 'Right']) {
+      const hq = B[s + 'Hand'].getWorldQuaternion(new THREE.Quaternion()).invert();
+      R.palm[s] = new THREE.Vector3(0, -1, 0).applyQuaternion(hq);
+      R.finger[s] = w(s + 'Hand').sub(w(s + 'ForeArm')).normalize().applyQuaternion(hq);
+      R.footQ = R.footQ || {}; R.footQ[s] = B[s + 'Foot'].getWorldQuaternion(new THREE.Quaternion());
+    }
+    src.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; o.receiveShadow = false; } });
+    giBear.src = src; giBear.rest = R; giBear.ready = true;
+    attachGiBearers();
+  } catch (err) { console.warn('道服扛人模型載入失敗，沿用方塊人：', err); }
+  loadDone.bear = true;
+}
+function attachGiBearers() {
+  for (const o of [...giGroup.children]) giGroup.remove(o);
+  const R = giBear.rest;
+  for (const b of bearers) {
+    const root = new THREE.Group();
+    const model = SkeletonUtils.clone(giBear.src);
+    const H = 1.85 * BEAR_S * (0.94 + Math.random() * 0.12);    // 比選手高大，每個人身高略有不同
+    const s = H / R.height;
+    model.scale.setScalar(s);
+    model.position.y = -R.minY * s;
+    if (R.facing < 0) model.rotation.y = Math.PI;
+    root.add(model);
+    let mat = null;
+    model.traverse(o => {
+      if (!o.isMesh) return;
+      mat = o.material = o.material.clone();
+      const tone = 0.86 + Math.random() * 0.14;                  // 道服白色有一點新舊差異
+      mat.color.setRGB(tone, tone, tone * 0.98);
+      mat.roughness = 0.85; mat.metalness = 0;
+    });
+    giGroup.add(root);
+    b.gi = { root, model, bones: giFindBones(model), mat, s,
+      phase: Math.random() * 100, sway: 0.5 + Math.random() * 0.6, look: 0, lookV: 0 };
+    b.jolt = 0; b.joltV = 0; b.drop = 0.1;
+  }
+  for (const k in bearInst) bearInst[k].mesh.visible = false;   // 隱藏方塊人
+}
+// 附近的重擊、落地：扛的人被震一下
+function joltBearers(x, z, amt) {
+  if (!(amt > 0)) return;
+  for (const b of bearers) {
+    const d = Math.hypot(b.x - x, b.z - z);
+    if (d < 7) b.joltV = (b.joltV || 0) + Math.min(5, amt) * 0.16 * (1 - d / 7);
+  }
+}
+const _cw = new THREE.Vector3(), _fw = new THREE.Vector3(), _lf = new THREE.Vector3(), _hl = new THREE.Vector3(), _hr = new THREE.Vector3();
+const _pole = new THREE.Vector3(), _side = new THREE.Vector3(), _hipW = new THREE.Vector3(), _tgt = new THREE.Vector3(), _ft = new THREE.Vector3();
+const _basisA = new THREE.Matrix4(), _basisB = new THREE.Matrix4(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
+let giTick = 0;
+function animateGiBearers(dt) {
+  const t = performance.now() / 1000;
+  platform.updateMatrixWorld();
+  giTick ^= 1;
+  const R = giBear.rest;
+  // 扛的人的動作每兩格更新一次（每格只更新一半的人），平滑速度補回來
+  const dt2 = Math.min(0.1, dt * 2);
+  for (let bi = giTick; bi < bearers.length; bi += 2) poseGiBearer(bearers[bi], dt2, t, R);
+}
+function poseGiBearer(b, dt, t, R) {
+  const G = b.gi, B = G.bones, s = G.s;
+  const [c, cw] = bearerCorner(b);
+  const down = c && c.down > 0 && cw > 0.25;
+  const stress = c ? Math.min(1, (c.down > 0 ? 1 : c.p / 100) * cw * 1.4) : 0;
+  // ---- 平台底面的接觸點（世界座標） ----
+  const inset = 0.28;
+  platform.localToWorld(_cw.set(b.x - b.nx * inset, -P.thick, b.z - b.nz * inset));
+  _fw.set(b.nx, 0, b.nz).transformDirection(platform.matrixWorld); _fw.y = 0; _fw.normalize();   // 面向（往外）
+  _lf.crossVectors(UP, _fw).normalize();                                                          // 角色的左手邊
+  const half = R.shoulderX * s * 1.15;
+  _hl.copy(_cw).addScaledVector(_lf, half);
+  _hr.copy(_cw).addScaledVector(_lf, -half);
+  // ---- 地面高度固定：平台壓下來就蹲、抬起來就站直 ----
+  const L = (R.upper + R.fore) * s, sh = R.shoulderY * s;
+  const back = 0.24;                                         // 身體站在接觸點外側一點（手往頭上後方撐）
+  const horiz = Math.hypot(back, half - R.shoulderX * s);
+  const vert = Math.sqrt(Math.max(0.01, (0.9 * L) ** 2 - horiz ** 2));
+  const legLen = (R.thigh + R.shin) * s;
+  // 平台這一邊被壓低／抬高了多少：小的部分用蹲低、站直吸收（看得到的反應），超過的部分整個人跟著平台移動（背景暗看不出地面）
+  const delta = _cw.y + P.thick;
+  const absorbed = Math.max(-0.36 * legLen, Math.min(0.07, delta * 0.55));
+  const ground = -P.thick - (sh - 0.08 + vert) + (delta - absorbed);   // 平台水平時：膝蓋微彎、手肘微彎
+  const need = _cw.y - ground;                               // 手要到的高度（離地）
+  // 被震：彈簧（往下沉再彈回）
+  b.joltV += (-90 * b.jolt - 11 * b.joltV) * dt;
+  b.jolt += b.joltV * dt;
+  // 目標蹲低量：手搆不到就蹲低、撐得很吃力再多蹲一點；塌陷時跪下
+  let dropT = (sh + 0.93 * vert) - need + stress * 0.14 + Math.max(0, b.jolt);
+  dropT = down ? legLen * 0.62 : Math.min(legLen * 0.42, Math.max(0.02, dropT));
+  b.drop += (dropT - b.drop) * (1 - Math.exp(-dt * (down ? 9 : 12)));
+  const lift = Math.max(0, -b.jolt) + Math.max(0, need - (sh + 0.98 * L) + b.drop * 0) * 0;   // 往上頂時踮腳
+  // ---- 重置姿勢 ----
+  for (const n of GI_BONES) B[n].quaternion.copy(R.quat[n]);
+  B.Hips.position.copy(R.hipsPos);
+  const root = G.root;
+  root.position.set(_cw.x + _fw.x * back, ground + lift, _cw.z + _fw.z * back);
+  root.rotation.set(0, Math.atan2(_fw.x, _fw.z), 0);
+  root.updateMatrixWorld(true);
+  // ---- 髖部：蹲低、重心左右換腳、發抖 ----
+  const ph = G.phase + t;
+  const tremble = (down ? 0.012 : stress * 0.02) * Math.sin(t * 38 + G.phase);
+  const swayX = Math.sin(ph * 0.55 * G.sway) * 0.05 * (1 - stress * 0.6);
+  B.Hips.getWorldPosition(_hipW);
+  _hipW.y -= b.drop;
+  _hipW.addScaledVector(_lf, swayX + tremble).addScaledVector(_fw, down ? 0.12 : -0.03 - b.drop * 0.15);
+  B.Hips.parent.worldToLocal(_hipW);
+  B.Hips.position.copy(_hipW);
+  B.Hips.updateMatrixWorld(true);
+  rotBoneWorld(B.Hips, _fw, -swayX * 1.4);                   // 換腳時骨盆跟著斜
+  // ---- 脊椎：撐住時微微後仰挺胸、吃力時往前縮、塌陷時彎腰；加上呼吸 ----
+  const breath = Math.sin(ph * 1.7) * 0.025;
+  const lean = down ? 0.38 : -0.07 + stress * 0.12 + Math.max(0, b.jolt) * 0.5;
+  for (const n of ['Spine', 'Spine1', 'Spine2']) rotBoneWorld(B[n], _lf, (lean + breath) / 3 + tremble);
+  // ---- 腳：踩在地上（塌陷時左腳往後跪） ----
+  const footY = R.foot.L.y * s;
+  for (const side of ['Left', 'Right']) {
+    const sg = side === 'Left' ? 1 : -1;
+    const kneel = down && side === 'Left';
+    const wide = 0.04 + stress * 0.07 + (down ? 0.04 : 0);
+    _ft.set(0, 0, 0);
+    root.localToWorld(_ft.set(R.foot[side === 'Left' ? 'L' : 'R'].x * s * (R.facing < 0 ? -1 : 1) + sg * wide, footY + (kneel ? 0.02 : 0), kneel ? -0.42 : 0.04 * sg * Math.sin(ph * 0.3)));
+    _pole.copy(_fw).addScaledVector(_lf, sg * 0.25);
+    if (kneel) _pole.addScaledVector(UP, -0.6);
+    ik2(B[side + 'UpLeg'], B[side + 'Leg'], B[side + 'Foot'], _ft, _pole, R.thigh * s, R.shin * s);
+    // 腳掌貼平地面
+    B[side + 'Foot'].parent.getWorldQuaternion(_q3).invert();
+    _q1.copy(root.quaternion);
+    if (R.facing < 0) _q1.multiply(_q2.setFromAxisAngle(UP, Math.PI));
+    _q1.multiply(R.footQ[side]);
+    if (kneel) _q1.premultiply(_q2.setFromAxisAngle(_lf, 0.9));
+    B[side + 'Foot'].quaternion.copy(_q3.multiply(_q1));
+    B[side + 'Foot'].updateMatrixWorld(true);
+  }
+  // ---- 手：撐在平台底面（IK），手肘往外張；塌陷時手肘彎到底、手掌還搭著 ----
+  for (const side of ['Left', 'Right']) {
+    const sg = side === 'Left' ? 1 : -1;
+    const tg = side === 'Left' ? _hl : _hr;
+    _tgt.copy(tg);
+    if (down) _tgt.y -= 0.0;
+    _pole.copy(_lf).multiplyScalar(sg).addScaledVector(_fw, 0.35).addScaledVector(UP, -0.3);
+    rotBoneWorld(B[side + 'Shoulder'], _fw, sg * (-0.18 - stress * 0.08));   // 聳肩把手抬高
+    ik2(B[side + 'Arm'], B[side + 'ForeArm'], B[side + 'Hand'], _tgt, _pole, R.upper * s, R.fore * s);
+    // 手掌朝上、平貼底面；手指朝平台內側
+    const hand = B[side + 'Hand'];
+    _y.copy(UP);
+    _z.copy(_fw).negate();                                   // 手指方向：往平台內
+    _x.crossVectors(_y, _z).normalize(); _z.crossVectors(_x, _y);
+    _basisA.makeBasis(_x, _y, _z);                           // 想要的世界方向（以 y = 手心法線、z = 手指）
+    _v4.copy(R.palm[side]).negate(); _v5.copy(R.finger[side]);
+    _x.crossVectors(_v4, _v5).normalize(); _v5.crossVectors(_x, _v4).normalize();
+    _basisB.makeBasis(_x, _v4, _v5);                         // 手的區域座標裡的同一組方向
+    _q1.setFromRotationMatrix(_basisA.multiply(_basisB.transpose()));
+    hand.parent.getWorldQuaternion(_q3).invert();
+    hand.quaternion.copy(_q3.multiply(_q1));
+    hand.updateMatrixWorld(true);
+  }
+  // ---- 頭：平常偶爾東張西望；吃力時仰頭咬牙；塌陷時低頭；有人掛在旁邊就抬頭看他 ----
+  let lookYaw = Math.sin(ph * 0.21) * 0.35 + Math.sin(ph * 0.53) * 0.15, lookPitch = -0.1 - stress * 0.35;
+  if (down) { lookYaw *= 0.2; lookPitch = 0.55; }
+  for (const f of fighters) {
+    if (!f.ledge || f.dead > 0) continue;
+    const dx = f.x - b.x, dz = f.z - b.z, d = Math.hypot(dx, dz);
+    if (d > 4) continue;
+    const ang = Math.atan2(dx * b.nz - dz * b.nx, -(dx * b.nx + dz * b.nz));   // 他在我的左右哪邊
+    lookYaw = Math.max(-1, Math.min(1, ang * 0.6)) * (1 - d / 4) + lookYaw * (d / 4); lookPitch = -0.55;
+  }
+  G.lookV += ((lookYaw - G.look) * 18 - G.lookV * 6) * dt; G.look += G.lookV * dt;
+  rotBoneWorld(B.Neck, UP, G.look * 0.5);
+  rotBoneWorld(B.Head, UP, G.look * 0.5);
+  rotBoneWorld(B.Head, _lf, lookPitch + tremble * 2);
+  // ---- 吃力發紅 ----
+  b.glow = down ? 0.3 : stress * stress * 0.55 * (0.65 + 0.35 * Math.sin(t * (6 + stress * 14) + G.phase));
+  if (G.mat) { G.mat.emissive.setRGB(0.9, 0.12, 0.05); G.mat.emissiveIntensity = Math.min(0.6, b.glow * 1.1); }
+}
+loadGiBearers();
+
+// 掛邊倒數條：顯示還要多久才能上來（面向鏡頭）
+const gripGeo = new THREE.PlaneGeometry(1, 1);
+for (const f of fighters) {
+  const g = new THREE.Group();
+  const back = new THREE.Mesh(gripGeo, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthTest: false }));
+  back.scale.set(1.3, 0.16, 1);
+  const fill = new THREE.Mesh(gripGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+  g.add(back, fill); g.visible = false; g.renderOrder = 10;
+  scene.add(g);
+  f.grip = { g, fill };
+}
+function updateGrip(f) {
+  const L = f.ledge, G = f.grip;
+  G.g.visible = !!L && !L.climb && f.dead <= 0;
+  if (!G.g.visible) return;
+  const k = Math.min(1, L.t / Math.max(0.01, P.ledgeWait));       // 0 → 1：填滿就可以上來
+  platform.localToWorld(G.g.position.set(f.x, f.y + 3.1, f.z));
+  G.g.quaternion.copy(camera.quaternion);
+  G.fill.scale.set(1.2 * k, 0.09, 1);
+  G.fill.position.x = -0.6 * (1 - k);
+  G.fill.material.color.setHex(k >= 1 ? 0xffe37a : 0xffffff);
+}
+
+// =====================================================================
+// 特效（小粒子）
+// =====================================================================
+const fxGeo = new THREE.SphereGeometry(1, 8, 6);
+const fx = [];
+const fxPool = [];                          // 用完的粒子回收再用，不每次都新建材質（避免偶發卡頓）
+function puff(x, y, z, o = {}) {
+  const m = fxPool.pop() || new THREE.Mesh(fxGeo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+  m.material.color.setHex(o.color ?? 0xffffff); m.material.opacity = o.opacity ?? 0.9;
+  m.position.set(x, y, z);
+  m.scale.setScalar(o.size ?? 0.15);
+  platform.add(m);
+  fx.push({ m, life: o.life ?? 0.25, max: o.life ?? 0.25, grow: o.grow ?? 2, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, op: o.opacity ?? 0.9 });
+}
+function spark(x, y, z, power, color = 0xfff2c0) {
+  puff(x, y, z, { color, size: 0.2 + power * 0.03, life: 0.16, grow: 9 });
+  const n = Math.min(14, 4 + Math.floor(power));
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 3 + Math.random() * (3 + power * 0.5);
+    puff(x, y, z, { color, size: 0.05 + Math.random() * 0.05, life: 0.25 + Math.random() * 0.2, grow: -1,
+      vx: Math.cos(a) * s, vy: (Math.random() - 0.2) * s, vz: Math.sin(a) * s });
+  }
+}
+function stepFx(dt) {
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const p = fx[i];
+    p.life -= dt;
+    if (p.life <= 0) { platform.remove(p.m); fxPool.push(p.m); fx.splice(i, 1); continue; }
+    p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
+    p.m.scale.multiplyScalar(Math.max(0.01, 1 + p.grow * dt));
+    p.m.material.opacity = p.op * (p.life / p.max);
+  }
+}
+
+// =====================================================================
+// 輸入：玩家與 CPU 共用同一種「控制器」介面
+//   mx, mz：移動方向（平台座標）；strongHeld、shieldHeld：按住狀態；take(name)：取用剛按下的鍵（有短暫緩衝）
+// =====================================================================
+const keys = new Set();
+function makeController() {
+  const c = { mx: 0, mz: 0, strongHeld: false, shieldHeld: false, buf: {} };
+  c.press = (n, t = 0.15) => { c.buf[n] = t; };
+  c.take = n => { if (c.buf[n] > 0) { c.buf[n] = 0; return true; } return false; };
+  c.tick = dt => { for (const k in c.buf) c.buf[k] -= dt; };
+  return c;
+}
+const human = makeController();
+// 抓取、防禦、空中閃避已停用：不綁按鍵，CPU 也不使用（引擎裡的處理保留，之後想加回來只要重新綁鍵）
+// W：地面 = 跳躍，空中 = 上升技（每次離地一次）；D：攻擊；A：重擊
+// S：翻滾閃避（往方向鍵的方向；沒按方向就往面朝的方向）
+// S：翻滾閃避（往按著的方向；沒按就往面朝的方向）；快速按兩下方向鍵 + D = 突進
+const KEYMAP = { KeyW: 'jump', KeyD: 'atk', KeyA: 'strong', KeyS: 'roll', Space: 'taunt' };
+const ARROWS = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+const tap = { code: '', time: -1e9, ready: -1e9, dir: '' };
+addEventListener('keydown', e => {
+  if (e.code in KEYMAP || ARROWS.includes(e.code)) e.preventDefault();
+  keys.add(e.code);
+  if (!e.repeat) {
+    // 快速按兩下同一個方向鍵（0.28 秒內），接著 0.4 秒內按 D = 往那個方向突進
+    if (ARROWS.includes(e.code)) {
+      const now = performance.now();
+      if (tap.code === e.code && now - tap.time < 280) { tap.ready = now; tap.dir = e.code; }
+      tap.code = e.code; tap.time = now;
+    }
+    if (e.code === 'KeyD' && performance.now() - tap.ready < 400) {
+      const sx = tap.dir === 'ArrowRight' ? 1 : tap.dir === 'ArrowLeft' ? -1 : 0, sy = tap.dir === 'ArrowDown' ? 1 : tap.dir === 'ArrowUp' ? -1 : 0;
+      human.lungeDir = { x: sx * SC + sy * SS, z: -sx * SS + sy * SC };   // 螢幕方向 → 平台座標
+      human.press('lunge'); tap.ready = -1e9;
+    }
+    else if (KEYMAP[e.code]) human.press(KEYMAP[e.code], KEYMAP[e.code] === 'roll' ? 0.3 : 0.15);   // 翻滾的輸入多保留一下，被打中時提早按也有效
+    if (e.code === 'KeyR') startMatch();
+    if (e.code === 'KeyH') { const pn = document.getElementById('panel'); pn.classList.toggle('hidden'); pn.classList.toggle('open', !pn.classList.contains('hidden')); }
+    if (e.code === 'KeyF') fpsEl.style.display = fpsEl.style.display === 'none' ? '' : 'none';
+    if (e.code === 'KeyP' || e.code === 'Escape') setPaused(!paused);
+  }
+});
+addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('blur', () => { keys.clear(); if (game.state === 'play') setPaused(true); });
+
+const padPrev = { b: [], flick: false };
+function updateHuman(dt) {
+  human.tick(dt);
+  let sx = (keys.has('ArrowRight') ? 1 : 0) - (keys.has('ArrowLeft') ? 1 : 0);
+  let sy = (keys.has('ArrowDown') ? 1 : 0) - (keys.has('ArrowUp') ? 1 : 0);
+  human.strongHeld = keys.has('KeyA');
+  human.tauntHeld = keys.has('Space');
+  // PS 手把（標準配置）：左搖桿移動、✕ 跳躍／上升技、□ 攻擊、△ 重擊、○ 翻滾、R1 嘲諷
+  const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
+  if (gp) {
+    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, mag = Math.hypot(ax, ay);
+    if (mag > 0.25) { sx = ax; sy = ay; }
+    const map = { 0: 'jump', 2: 'atk', 3: 'strong', 1: 'roll', 5: 'taunt' };
+    for (const i in map) {
+      const down = !!(gp.buttons[i] && gp.buttons[i].pressed);
+      if (down && !padPrev.b[i]) human.press(map[i], map[i] === 'roll' ? 0.3 : 0.15);
+      padPrev.b[i] = down;
+    }
+    if (padPrev.b[3]) human.strongHeld = true;
+    if (padPrev.b[5]) human.tauntHeld = true;
+  }
+  const l = Math.hypot(sx, sy);
+  if (l > 1) { sx /= l; sy /= l; }
+  human.mx = sx * SC + sy * SS;      // 螢幕方向 → 平台座標
+  human.mz = -sx * SS + sy * SC;
+}
+
+// =====================================================================
+// CPU
+// =====================================================================
+const ai = Object.assign(makeController(), { lungeAtk: 0, rollDir: null, airSlam: 0, think: 0, shieldT: 0, chargeT: 0, ledgeT: 0, seen: null, jabs: 0, airAtk: 0, roll: null, hold: null });
+function updateAI(dt) {
+  const c = ai, me = cpu, o = me.opp, s = (P.cpuLevel - 1) / 8;
+  c.tick(dt);
+  c.chargeT -= dt; c.shieldT -= dt;
+  c.strongHeld = c.chargeT > 0;
+  c.shieldHeld = c.shieldT > 0;
+  c.rollDir = null;
+  c.mx = c.mz = 0;
+  if (me.dead > 0 || me.out || game.state !== 'play') return;
+  const cl = Math.hypot(me.x, me.z) || 1, tcx = -me.x / cl, tcz = -me.z / cl;   // 往中心的方向
+  const k = rhombus(me.x, me.z);
+
+  if (me.ledge) {                       // 掛在邊緣：等一下再爬上來或跳上來
+    c.ledgeT += dt;
+    if (c.ledgeT > P.ledgeWait + 0.05 + (1 - s) * 0.6) {
+      if (!c.ledgeAct) {                  // 只決定一次：爬、跳、出擊、翻滾；對手站在邊緣時比較常出擊或翻滾
+        const near = Math.hypot(me.opp.x - me.x, me.opp.z - me.z) < 2.4, r = Math.random();
+        c.ledgeAct = near ? (r < 0.35 ? 'atk' : r < 0.65 ? 'roll' : r < 0.85 ? 'jump' : 'climb')
+                          : (r < 0.45 ? 'climb' : r < 0.7 ? 'jump' : r < 0.85 ? 'roll' : 'atk');
+      }
+      if (c.ledgeAct === 'jump') { if (!(c.buf.jump > 0)) c.press('jump'); }
+      else if (c.ledgeAct === 'atk') { if (!(c.buf.atk > 0)) c.press('atk'); }
+      else if (c.ledgeAct === 'roll') { if (!(c.buf.roll > 0)) c.press('roll'); }
+      else { c.mx = me.ledge.nx; c.mz = me.ledge.nz; }
+    }
+    return;
+  }
+  c.ledgeT = 0; c.ledgeAct = null;
+
+  if (!me.ground && (k > 1 || me.y < 0)) {    // 在場外：回場
+    c.mx = tcx; c.mz = tcz;
+    if (me.hitstun <= 0 && !me.move) {
+      c.think -= dt;
+      if (c.think <= 0) {
+        c.think = 0.06 + (1 - s) * 0.25;
+        if (!me.specUsed && me.vy < 0 && (k > 1.2 || me.y < -0.8)) c.press('jump');   // 空中按跳躍 = 上升技
+      }
+    }
+    return;
+  }
+  if (o.dead > 0 || o.out) { if (cl > 2) { c.mx = tcx; c.mz = tcz; } return; }
+
+  const dx = o.x - me.x, dz = o.z - me.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
+  const om = o.move;
+
+  // 剋制循環：對手蓄力 → 翻滾到他背後；對手翻滾剛結束 → 用 D 反擊；對手在 D 距離外起手重擊 → 先用 D 戳
+  if (om && om.id === 'strong' && (om.phase === 'charge' || (om.phase === 'startup' && om.pt > 0.08)) && om !== c.dodged && d < 3 && me.ground && me.hitstun <= 0 && (!me.move || me.move.phase === 'recovery')) {
+    c.dodged = om;
+    if (Math.random() < 0.15 + 0.7 * s) { c.roll = { x: ux, z: uz, t: 0.08 }; c.press('roll'); }   // 看到蓄力：滾到背後
+  }
+  if (o.roll === null && o.lag > 0.05 && d < 1.9 && me.ground && !me.move && me.hitstun <= 0 && Math.random() < 0.1 + 0.4 * s) { c.press('atk'); c.jabs = 2; }
+  if (om && om.id === 'strong' && om.phase === 'startup' && d < 1.85 && d > 1.2 && me.ground && !me.move && me.hitstun <= 0 && Math.random() < 0.05 + 0.25 * s) { c.press('atk'); c.jabs = 0; }
+  // 被 D 的前兩段打中：依等級在空檔翻滾逃開
+  if (om && (om.id === 'jab1' || om.id === 'jab2') && om.hit && om !== c.escaped && me.hitstun > 0) {
+    c.escaped = om;
+    if (Math.random() < 0.15 + 0.6 * s) { const behind = Math.random() < 0.4 ? 1 : -1; c.roll = { x: ux * behind, z: uz * behind, t: 0.12 }; c.press('roll', 0.3); }
+  }
+  // 看到對手出招：依等級決定是否後退或跳開
+  if (om && om !== c.seen && om.phase !== 'recovery' && om.id !== 'strong') {
+    c.seen = om;
+    if (d < 2.6 && me.ground && !me.move && me.hitstun <= 0) {
+      const r = Math.random();
+      if (r < 0.05 + 0.3 * s) { c.press('jump'); c.roll = { x: -ux, z: -uz, t: 0.3 }; }
+      else if (r < 0.1 + 0.45 * s) {     // 翻滾：多半往後，偶爾滾到對手背後
+        const behind = Math.random() < 0.3 ? 1 : -1;
+        c.roll = { x: ux * behind, z: uz * behind, t: 0.1 }; c.press('roll');
+      }
+      else if (r < 0.1 + 0.6 * s) c.roll = { x: -ux, z: -uz, t: 0.25 };
+    }
+  }
+  if (c.roll) { c.roll.t -= dt; c.mx = c.roll.x; c.mz = c.roll.z; if (c.roll.t <= 0) c.roll = null; return; }
+  if (c.shieldT > 0) { c.mx = c.mz = 0; return; }                              // 防禦中：站穩，不做其他決定
+  if (c.airAtk > 0) { c.airAtk -= dt; if (c.airAtk <= 0 && !me.ground) c.press('atk'); }
+  if (c.airSlam > 0) { c.airSlam -= dt; if (c.airSlam <= 0 && !me.ground) c.press('strong'); }
+
+  const oOff = o.ledge || (!o.ground && (rhombus(o.x, o.z) > 1 || o.y < 0));
+  const canDecide = me.ground && !me.move && me.hitstun <= 0 && me.lag <= 0 && me.dizzy <= 0;
+
+  if (oOff) {                            // 守邊：站在對手要回來的邊緣內側
+    const E = edgeInfo(o.x, o.z);
+    const tx = E.px - E.nx * 1.3, tz = E.pz - E.nz * 1.3;
+    const ex = tx - me.x, ez = tz - me.z, el = Math.hypot(ex, ez);
+    if (el > 0.4) { c.mx = ex / el; c.mz = ez / el; }
+    c.think -= dt;
+    // 對手掛在邊緣：跳起來用下墜重擊把他震下去
+    if (canDecide && c.think <= 0 && d > 5 && edgeDist(me.x, me.z) > 2.5 && Math.random() < 0.06) { c.think = 1; c.press('taunt'); return; }   // 對手離很遠：偶爾嘲諷
+    if (canDecide && c.think <= 0 && o.ledge && !o.ledge.climb && Math.hypot(o.ledge.hx - me.x, o.ledge.hz - me.z) < 1.9 && Math.random() < 0.25 + 0.5 * s) {
+      c.think = 0.9; c.press('jump'); c.airSlam = 0.2; c.mx = c.mz = 0;
+      return;
+    }
+    if (canDecide && c.think <= 0 && d < 1.8 && Math.abs(o.y - me.y) < 1.3 && !isInvuln(o) && !o.ledge) {
+      c.think = 0.2 + (1 - s) * 0.4;
+      if (Math.random() < 0.4 + 0.3 * s) { c.press('strong'); c.chargeT = 0.05; } else { c.press('atk'); c.jabs = 2; }
+    }
+    return;
+  }
+
+  // 自己在塌陷中的角附近：先離開
+  for (const cc of corners) if (cc.down > 0 && cornerW(cc, me.x, me.z) > 0.2) { c.mx = -cc.dx; c.mz = -cc.dz; return; }
+  // 一般對峙：接近到出手距離，太近就退
+  if (d > 1.4) { c.mx = ux; c.mz = uz; } else if (d < 0.7) { c.mx = -ux; c.mz = -uz; }
+  if (edgeDist(me.x, me.z) < 1.0) {       // 自己靠近邊緣：往中心靠
+    c.mx += tcx * 0.9; c.mz += tcz * 0.9;
+    const l = Math.hypot(c.mx, c.mz) || 1; c.mx /= l; c.mz /= l;
+  }
+  // 連段：打中了就繼續按
+  if (me.move && me.move.id.startsWith('jab') && me.move.hit && c.jabs > 0 && !(c.buf.atk > 0)) { c.press('atk'); c.jabs--; }
+
+  c.think -= dt;
+  if (!canDecide || c.think > 0) return;
+  c.think = 0.1 + (1 - s) * 0.45 + Math.random() * 0.15;
+  const vuln = o.dizzy > 0 || (om && om.phase === 'recovery') || o.lag > 0.1;
+  const r = Math.random();
+  if (d < 1.85 && Math.abs(o.y - me.y) < 1.0) {
+    const nearHot = corners.some(cc => (cc.down > 0 || cc.p > 35) && cornerW(cc, o.x, o.z) > 0.25);
+    if (o.shielding) { c.press('atk'); c.jabs = 2; return; }                    // 對手防禦：用 D 打穿
+    const finish = o.pct > 85;                                                    // 高 % 才用重擊收尾
+    if (nearHot && r < 0.3 + 0.5 * s) { c.press('strong'); c.chargeT = 0.85 + Math.random() * 0.35; }   // 對手在快塌的角：蓄力過半的重擊（按住時間含 0.16 秒起手）
+    else if (vuln && d < 1.4 && r < 0.4 + 0.4 * s) { c.press(finish ? 'strong' : 'atk'); c.chargeT = 0.05; c.jabs = 2; }   // 對手有破綻：懲罰
+    else if (finish && d < 1.4 && r < 0.45) { c.press('strong'); c.chargeT = Math.random() < 0.4 ? 0.95 : 0.1; }
+    else if (r < 0.75) { c.press('atk'); c.jabs = 2; }                            // 平常用 D 累積傷害
+    else if (r < 0.82) { c.press('strong'); c.chargeT = 0.95; }                    // 偶爾蓄力硬吃
+    else c.roll = { x: -ux, z: -uz, t: 0.3 };                                    // 偶爾後退拉開距離
+  } else if (d > 2 && d < 4 && r < 0.35) {
+    c.lungeDir = { x: ux, z: uz }; c.press('lunge');   // 中距離：朝對手突進
+  } else if (!o.ground && d < 2.4 && o.y > 0.8 && r < 0.3 + 0.4 * s) {
+    c.press('jump'); c.airAtk = 0.18;     // 對手在空中：跳起來追打
+  }
+}
+
+// =====================================================================
+// 物理與戰鬥
+// =====================================================================
+const tilt = { x: 0, z: 0, vx: 0, vz: 0, y: 0, vy: 0 };   // y：平台整體下沉量
+const clampV = (v, lim) => Math.max(-lim, Math.min(lim, v));
+let hitStop = 0, shake = 0, slowT = 0;
+
+function stepTilt(dt) {
+  // 平常：依選手位置輕微傾斜；角落塌陷時再加上往那一角的大幅傾斜
+  let mx = 0, mz = 0;
+  for (const f of fighters) if (f.ground && f.dead <= 0 && !f.out) { mx += f.weight * f.x; mz += f.weight * f.z; }
+  const col = collapseTilt();
+  const targetZ = clampV(-P.tiltGain * mx, P.tiltMax) + col.tz;
+  const targetX = clampV( P.tiltGain * mz, P.tiltMax) + col.tx;
+  tilt.vz += (P.tiltStiff * (targetZ - tilt.z) - P.tiltDamp * tilt.vz) * dt;
+  tilt.vx += (P.tiltStiff * (targetX - tilt.x) - P.tiltDamp * tilt.vx) * dt;
+  tilt.vy += (P.tiltStiff * (col.ty - tilt.y) - P.tiltDamp * tilt.vy) * dt;
+  tilt.z += tilt.vz * dt; tilt.x += tilt.vx * dt; tilt.y += tilt.vy * dt;
+}
+// 在 (x, z) 往下壓平台一下
+function kickTilt(x, z, amt, cornerAmt = 0) {
+  joltBearers(x, z, amt);                // 扛的人被震一下（膝蓋一軟再頂回來）
+  tilt.vz += -P.landKick * x * amt;
+  tilt.vx +=  P.landKick * z * amt;
+  hurtBearers(x, z, cornerAmt);          // 角落壓力（站著、普通落地不算）
+}
+
+const isInvuln = f => f.invuln > 0 ||
+  (f.roll && f.roll.t > 0.04 && f.roll.t < 0.27) ||
+  (f.dodge && f.dodge.t > 0.03 && f.dodge.t < 0.3) ||
+  (f.ledge && f.ledge.climb);
+
+let moveSeq = 0;
+function startMove(f, id) {
+  const d = MOVES[id];
+  f.move = { id, def: d, phase: 'startup', pt: 0, hit: false, charge: 0, queued: false, uid: ++moveSeq };
+  if (id === 'slam') { f.vy = 2.5; f.vx *= 0.4; f.vz *= 0.4; }
+  if (d.step && f.ground) { f.vx += Math.sin(f.yaw) * d.step; f.vz += Math.cos(f.yaw) * d.step; }
+}
+function enterActive(f, c) {
+  const m = f.move, d = m.def;
+  m.phase = 'active'; m.pt = 0;
+  if (m.id === 'strong' && f.ground) {
+    if (Math.hypot(c.mx, c.mz) > 0.3) f.yaw = Math.atan2(c.mx, c.mz);   // 不額外往前衝，保持「D 比 A 打得遠」
+  }
+  if (m.id === 'slam') { f.vy = d.plunge; f.vx = f.vz = 0; }
+  if (m.id === 'upSpec') {
+    f.ground = false; f.y = Math.max(f.y, 0.001); f.vy = d.rise; f.specUsed = true;
+    f.vx = c.mx * 6.5; f.vz = c.mz * 6.5;   // 上升技可以帶比較多的水平距離，方便回場
+  }
+  if (m.id === 'strong') kickTilt(f.x, f.z, d.stomp * (1 + m.charge), m.charge > 0.5 ? 1 + m.charge : 0);   // 只有蓄力過半的重擊才算角落壓力
+}
+function releaseGrab(f) {
+  if (f.opp.grabbedBy === f) f.opp.grabbedBy = null;
+}
+function stepMove(f, c, dt) {
+  const m = f.move, d = m.def;
+  m.pt += dt;
+  if (m.id === 'taunt') {                 // 嘲諷：跳到放開空白鍵（至少 1.2 秒），或整段跳完
+    m.phase = 'active';
+    const len = rigAssets.clips.taunt ? rigAssets.clips.taunt.duration - 0.1 : 1.6;
+    if ((m.pt >= d.min && !c.tauntHeld) || m.pt >= len) { f.move = null; f.lag = 0.1; }
+    return;
+  }
+  // A：起手和蓄力時可以用方向鍵轉向；出手的瞬間朝按著的方向打出去
+  if (m.id === 'strong' && (m.phase === 'startup' || m.phase === 'charge') && f.ground && Math.hypot(c.mx, c.mz) > 0.3)
+    turnTo(f, Math.atan2(c.mx, c.mz), 10, dt);
+  if (m.phase === 'startup') {
+    if (m.pt >= d.startup) {
+      if (d.chargeMax && c.strongHeld) { m.phase = 'charge'; m.pt = 0; } else enterActive(f, c);
+    }
+  } else if (m.phase === 'charge') {
+    m.charge = Math.min(1, m.pt / d.chargeMax);
+    if (!c.strongHeld || m.pt >= d.chargeMax) enterActive(f, c);
+  } else if (m.phase === 'active') {
+    if (d.next && c.take('atk')) m.queued = true;
+    if (m.id === 'slam') {
+      if (f.ground) { m.phase = 'recovery'; m.pt = 0; shakeLedge(f); kickTilt(f.x, f.z, d.stomp, 1.2); shake = Math.max(shake, 0.3); puff(f.x, 0.1, f.z, { size: 0.5, life: 0.3, grow: 6, opacity: 0.5 }); }
+    } else if (m.pt >= d.active) { m.phase = 'recovery'; m.pt = 0; }
+  } else if (m.phase === 'recovery') {
+    if (d.next && c.take('atk')) m.queued = true;
+    if (m.pt >= (d.whiff && !m.hit ? d.whiff : d.recovery) + (m.extraLag || 0)) {     // 重擊打空、被防禦擋下：收招更久
+      if (m.queued && d.next && f.ground) startMove(f, d.next);
+      else f.move = null;
+    }
+  } else if (m.phase === 'hold') {       // 抓住對手：0.45 秒後往按的方向投出
+    if (m.pt >= 0.45) {
+      const t = f.opp;
+      let dx = c.mx, dz = c.mz, l = Math.hypot(dx, dz);
+      if (l < 0.3) { dx = Math.sin(f.yaw); dz = Math.cos(f.yaw); l = 1; }
+      dx /= l; dz /= l;
+      f.yaw = Math.atan2(dx, dz);
+      f.move = { id: 'throwRec', def: { recovery: 0.28 }, phase: 'recovery', pt: 0, hit: true };
+      if (t.grabbedBy === f) {
+        t.grabbedBy = null;
+        t.x = f.x + dx * 0.7; t.z = f.z + dz * 0.7; t.y = f.y + 0.3; t.ground = false;
+        applyHit(f, t, MOVES.throw, dx, dz, 0);
+      }
+    }
+  }
+}
+
+let ledgeClock = 1;   // 掛邊的計時用實際時間：遊戲放慢時，倒數條仍然是實際的 2 秒
+// 有人掛在邊緣（還沒開始爬上來）
+const someoneHanging = () => fighters.some(f => f.ledge && !f.ledge.climb && f.dead <= 0);
+const isArmored = f => f.move && f.move.id === 'strong' && f.move.phase === 'charge' && f.move.charge > 0.5;
+function applyHit(a, t, d, dirx, dirz, charge) {
+  const dmg = (d.dmgMax ? d.dmg + (d.dmgMax - d.dmg) * charge : d.dmg) * P.dmgScale;
+  t.pct += dmg;
+  if (d.light && isArmored(t)) {         // 蓄力過半的重擊：被 D 系列打中只受傷、不會被打斷
+    hitStop = 0.05; shake = Math.max(shake, 0.12);
+    spark((a.x + t.x) / 2, t.y + 1.1, (a.z + t.z) / 2, 2, 0xffd27a);
+    return;
+  }
+  const kbg = d.kbgMax ? d.kbg + (d.kbgMax - d.kbg) * charge : d.kbg;
+  let kb = (d.bkb + kbg * t.pct) * P.kbScale / t.weight;
+  // 順著平台下沉的方向打，飛得更遠；逆著打則較近
+  const [skx, skz] = sinkAt(t.x, t.z);   // 被打向塌陷的角，飛得更遠
+  const along = dirx * -Math.sin(tilt.z) + dirz * Math.sin(tilt.x) + (dirx * skx + dirz * skz) * 0.5;
+  kb *= Math.max(0.7, Math.min(1.6, 1 + P.tiltKB * along));
+  const ang = d.angle * Math.PI / 180;
+  t.vx = dirx * kb * Math.cos(ang); t.vz = dirz * kb * Math.cos(ang); t.vy = kb * Math.sin(ang);
+  if (t.ground) { if (t.vy > 1.5) { t.ground = false; t.y = 0.02; } else t.vy = 0; }
+  t.hitstun = d.hs ?? Math.min(1.6, 0.1 + kb * 0.035 * P.hitstunScale);
+  if (t.move && t.move.id === 'hold') releaseGrab(t);
+  t.move = null; t.roll = null; t.dodge = null; t.ledge = null; t.shielding = false; t.helpless = false;
+  t.yaw = Math.atan2(-dirx, -dirz);
+  t.hitX = dirx * kb; t.hitZ = dirz * kb; t.hitT = 1; t.hitSeq++;
+  hitStop = Math.min(0.2, 0.03 + dmg * 0.007);
+  shake = Math.max(shake, Math.min(0.7, kb * 0.035));
+  spark((a.x + t.x) / 2, t.y + 1.1, (a.z + t.z) / 2, kb);
+  // 千鈞一髮：這一擊足以出局（或飛到很難回來的位置）→ 短暫慢動作、鏡頭拉近被打飛的人
+  if (game.state === 'play' && !t.closeCall && predictDanger(t)) {
+    t.closeCall = true; slowT = Math.max(slowT, 0.45); camFocus.f = t; camFocus.t = 0.9;
+  }
+}
+
+function processHits(a, t) {
+  const m = a.move;
+  if (!m || m.phase !== 'active' || m.hit) return;
+  const d = m.def;
+  if (!d.dmg && !d.grab) return;
+  if (t.dead > 0 || t.out || t.grabbedBy || isInvuln(t)) return;
+  if (t.ledge && m.id === 'slam') return;   // 下墜重擊對掛邊的人只有「震落」，不造成傷害
+  const dx = t.x - a.x, dz = t.z - a.z, dist = Math.hypot(dx, dz);
+  if (dist > d.reach + BODY_R) return;
+  if (Math.abs(t.y - (a.y + (d.yOff || 0))) > d.v) return;
+  if (d.arc < Math.PI && dist > 0.05) {
+    if ((dx * Math.sin(a.yaw) + dz * Math.cos(a.yaw)) / dist < Math.cos(d.arc)) return;
+  }
+  m.hit = true;
+  const dirx = dist > 0.05 ? dx / dist : Math.sin(a.yaw), dirz = dist > 0.05 ? dz / dist : Math.cos(a.yaw);
+  if (d.grab) {                          // 抓取：無視防禦
+    if (t.move && t.move.id === 'hold') releaseGrab(t);
+    t.grabbedBy = a; t.move = null; t.roll = null; t.shielding = false; t.hitstun = 0; t.ledge = null;
+    a.move = { id: 'hold', def: {}, phase: 'hold', pt: 0, hit: true };
+    return;
+  }
+  // 防禦：D 系列（light）直接打穿；其他招式被擋下 → 不會被打飛，量表只累積一半；
+  //        防禦方稍微往後滑（在邊緣一直防禦還是會被慢慢推出去）；攻擊方被彈開並多 0.25 秒收招，防禦方可以反擊
+  if (t.shielding && !d.light) {
+    const dmg = (d.dmgMax ? d.dmg + (d.dmgMax - d.dmg) * m.charge : d.dmg) * P.dmgScale;
+    t.pct += dmg * 0.5;
+    t.shieldStun = 0.12 + dmg * 0.01;
+    t.vx += dirx * (1.8 + dmg * 0.15); t.vz += dirz * (1.8 + dmg * 0.15);
+    a.vx -= dirx * 3; a.vz -= dirz * 3;
+    m.extraLag = m.id === 'strong' ? 0.22 : 0.25;   // A 被擋下：多 0.22 秒收招（仍然來得及被 D 反擊）
+    hitStop = 0.07; shake = Math.max(shake, 0.2);
+    spark((a.x + t.x) / 2, t.y + 1.0, (a.z + t.z) / 2, 4, 0xbfe3ff);
+    return;
+  }
+  applyHit(a, t, d, dirx, dirz, m.charge);
+}
+function breakShield(f) {                // 破防：彈起後暈眩
+  f.shielding = false; f.shieldStun = 0; f.shield = 40;
+  f.dizzy = 2.6; f.ground = false; f.y = 0.02; f.vy = 5.5; f.vx = f.vz = 0;
+  shake = Math.max(shake, 0.4);
+  spark(f.x, 1.2, f.z, 8, f.accent);
+}
+
+function land(f) {
+  const impact = Math.min(1.5, -f.vy / 10);
+  f.y = 0; f.vy = 0; f.ground = true;
+  f.airJumps = 1; f.specUsed = false; f.dodgeUsed = false; f.helpless = false; f.dodge = null;
+  f.landT = Math.min(1, impact);
+  if (game.state === 'intro') {            // 開場落地：地面震動、揚起塵土
+    shake = Math.max(shake, 0.55); hitStop = Math.max(hitStop, 0.05);
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * Math.PI * 2;
+      puff(f.x, 0.1, f.z, { color: 0xc8beb0, size: 0.28, life: 0.6, grow: 2.5, opacity: 0.5, vx: Math.cos(a) * 4, vy: 0.8, vz: Math.sin(a) * 4 });
+    }
+  }
+  f.ledgeCount = 0;
+  if (f.closeCall) saved(f);
+  kickTilt(f.x, f.z, impact);            // 落地不算角落壓力
+  if (f.hitstun > 0) { f.hitstun = Math.min(f.hitstun, 0.3); f.lag = Math.max(f.lag, 0.25); }
+  if (f.move && f.move.id !== 'slam') {
+    if (f.move.id === 'air') f.lag = Math.max(f.lag, 0.1);
+    if (f.move.id === 'upSpec') f.lag = Math.max(f.lag, 0.22);
+    if (!f.move.def.step) f.move = null;       // 空中招式落地取消
+  }
+}
+
+function tryLedge(f, dt) {
+  if (f.ground || f.vy > 4 || f.hitstun > 0.15 || f.ledgeCd > 0 || f.dizzy > 0) return;
+  if (f.move && f.move.id === 'slam') return;
+  const ed = edgeDist(f.x, f.z);
+  // 吸附：下墜時靠近邊緣，會被輕輕拉向抓邊的位置
+  if (f.vy < 0 && ed < 0 && ed > -2.2 && f.y < 0.4 && f.y > LEDGE_Y - 2) {
+    const l = Math.hypot(f.x, f.z) || 1;
+    f.vx -= f.x / l * 9 * dt; f.vz -= f.z / l * 9 * dt;
+  }
+  if (f.y < LEDGE_Y - 1.3 || f.y > LEDGE_Y + 1.7) return;       // 上下範圍（原本 -0.7 ～ +1.2）
+  if (ed > 0.1 || ed < -1.2) return;                             // 左右範圍（原本 0.75）
+  const o = f.opp;
+  if (o.ledge && Math.hypot(o.x - f.x, o.z - f.z) < 1.5) return;   // 邊緣已經有人
+  const E = edgeInfo(f.x, f.z), px = E.px, pz = E.pz;
+  const nx = -E.nx, nz = -E.nz;           // 往平台內的方向（和邊垂直）
+  f.ledge = { t: 0, climb: false, ct: 0, getup: null, hx: px - nx * 0.28, hz: pz - nz * 0.28, ix: px + nx * 0.8, iz: pz + nz * 0.8, nx, nz,
+    sx: f.x, sy: f.y, sz: f.z };          // sx/sy/sz：抓到時的位置，用來平滑移到掛邊位置
+  f.vx = f.vz = f.vy = 0; f.move = null; f.dodge = null; f.hitstun = 0;
+  f.airJumps = 1; f.specUsed = false; f.dodgeUsed = false; f.helpless = false;
+  // 連續抓邊（中間沒踩回平台）無敵時間遞減，避免一直掛著拖時間
+  f.invuln = Math.max(f.invuln, [0.6, 0.3, 0][Math.min(2, f.ledgeCount)]);
+  f.ledgeCount++;
+  if (f.closeCall) saved(f);
+}
+// 下墜重擊落在邊緣附近：把掛在那裡的人震飛出去（無視抓邊無敵；飛多遠看他的量表）
+function shakeLedge(a) {
+  const o = a.opp, L = o.ledge;
+  if (!L || L.climb || L.t < 0.3) return;                         // 剛抓到 0.3 秒內不會被震下
+  if (Math.hypot(a.x - L.hx, a.z - L.hz) > 2.2) return;
+  releaseLedgeVisual(o);
+  applyHit(a, o, MOVES.shake, -L.nx, -L.nz, 0);                    // 往平台外、往上打飛
+  o.ledgeCd = 0.8; o.invuln = 0;
+  o.specUsed = false; o.helpless = false;                          // 被震飛的人還能用一次上升技回場
+  shake = Math.max(shake, 0.5);
+  spark(L.hx, 0.1, L.hz, 8);
+}
+
+// 攀爬中被震下或放手：把角色的位置移到身體實際所在的地方（爬到一半的高度），避免瞬間掉回原本掛著的位置
+function releaseLedgeVisual(f) {
+  const L = f.ledge;
+  if (!L || L.climb || !f.model || !rigAssets.climbRoot) return;
+  const off = rigAssets.climbRoot(ledgeClipTime(L));
+  const k = Math.min(1, L.t / 0.1);
+  f.y = LEDGE_Y + (HANG_OFF.y * k + off.dy);
+  const fwd = Math.min(HANG_OFF.z * k + off.dz, 0.25);      // 不要直接把人放進平台裡
+  f.x = L.hx + L.nx * fwd; f.z = L.hz + L.nz * fwd;
+}
+// 攀爬時間內播放到「爬上來」動作的哪裡：拉上去（約一半時間）→ 跪在邊緣、準備站起
+const LEDGE_MAP = [[0, 0.3], [0.55, 1.6], [1, 3.6]];
+function ledgeClipTime(L) {
+  const p = Math.min(1, L.t / Math.max(0.01, P.ledgeWait));
+  for (let i = 1; i < LEDGE_MAP.length; i++) if (p <= LEDGE_MAP[i][0]) { const [p0, t0] = LEDGE_MAP[i - 1], [p1, t1] = LEDGE_MAP[i]; return t0 + (t1 - t0) * (p - p0) / (p1 - p0); }
+  return LEDGE_MAP[LEDGE_MAP.length - 1][1];
+}
+
+// ---- 千鈞一髮 ----
+// 預估這一擊會不會讓對方出局或飛到很難回來的位置（不考慮回場操作）
+function predictDanger(t) {
+  let x = t.x, z = t.z, y = t.y, vx = t.vx, vz = t.vz, vy = t.vy, hs = t.hitstun;
+  const h = 1 / 60, T = hs + 0.35;
+  for (let tt = 0; tt < T; tt += h) {
+    const d = Math.exp(-(hs > 0 ? 0.55 : 2.2) * h);
+    vx *= d; vz *= d; vy = Math.max(-MAX_FALL, vy - P.airG * h);
+    x += vx * h; z += vz * h; y += vy * h; hs -= h;
+    if (y <= 0 && vy < 0 && rhombus(x, z) <= 1) return false;          // 會落回平台
+    if (outOfBounds(x, y, z)) return true;
+  }
+  return rhombus(x, z) > 1 && (edgeDist(x, z) < -5.5 || y < -4);
+}
+const flashEl = document.getElementById('flash'), vigEl = document.getElementById('vig');
+function saved(f) {                       // 救回來了：畫面閃白、角色身邊一圈光
+  f.closeCall = false;
+  flashEl.style.transition = 'none'; flashEl.style.opacity = 0.55;
+  requestAnimationFrame(() => { flashEl.style.transition = ''; flashEl.style.opacity = 0; });
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; puff(f.x, f.y + 1, f.z, { color: 0xffffff, size: 0.12, life: 0.45, grow: 1, vx: Math.cos(a) * 4, vy: 1.5, vz: Math.sin(a) * 4 }); }
+}
+
+function ko(f) {
+  spark(f.x, Math.max(f.y, -2) + 1, f.z, 14, f.accent);
+  for (let i = 0; i < 10; i++) puff(f.x, f.y + 1, f.z, { color: f.accent, size: 0.3, life: 0.6, grow: 3, vy: 6 + Math.random() * 8, vx: (Math.random() - 0.5) * 3, vz: (Math.random() - 0.5) * 3 });
+  shake = 0.8;
+  if (f.move && f.move.id === 'hold') releaseGrab(f);
+  if (f.grabbedBy) { f.grabbedBy.move = null; f.grabbedBy = null; }
+  f.move = null; f.roll = null; f.dodge = null; f.ledge = null; f.hitstun = 0; f.dizzy = 0; f.shielding = false;
+  f.vx = f.vz = f.vy = 0;
+  f.dead = 999;                          // 這一局不再出現，等下一局重新站上平台
+  if (game.state === 'play') {           // 先掉下去的人輸這一局
+    f.opp.wins++;
+    game.state = 'roundEnd'; game.t = 0; game.roundWinner = f.opp;
+    slowT = 0.9;
+  }
+}
+function respawn(f) {}
+
+function turnTo(f, target, rate, dt) {
+  let dy = target - f.yaw;
+  dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+  f.yaw += dy * Math.min(1, dt * rate);
+}
+
+function stepFighter(f, c, dt, active) {
+  const o = f.opp;
+  for (const k of ['invuln', 'lag', 'shieldStun', 'ledgeCd']) f[k] = Math.max(0, f[k] - dt);
+  if (f.out) return;
+  if (f.dead > 0) { f.dead -= dt; if (f.dead <= 0) respawn(f); return; }
+  if (game.state === 'intro') {
+    if (f.introDelay > 0) { f.introDelay -= dt; f.vy = 0; return; }   // 錯開一點點落下
+    if (f.ground) f.introT += dt;
+  }
+  if (f.grabbedBy) {                     // 被抓住：固定在對方身前
+    const g = f.grabbedBy;
+    f.x = g.x + Math.sin(g.yaw) * 0.8; f.z = g.z + Math.cos(g.yaw) * 0.8; f.y = g.y + 0.15;
+    f.vx = f.vz = f.vy = 0; f.yaw = g.yaw + Math.PI; f.ground = false;
+    return;
+  }
+
+  // ---- 掛在邊緣 ----
+  if (f.ledge) {
+    const L = f.ledge;
+    L.t += dt * (L.climb ? 1 : ledgeClock); f.vx = f.vz = f.vy = 0; f.yaw = Math.atan2(L.nx, L.nz);
+    if (L.climb) {                       // 爬上平台（全程無敵）
+      L.ct += dt;
+      const dur = CLIMB_DUR[L.getup || 'up'];
+      const p = Math.min(1, L.ct / dur), e = p * p * (3 - 2 * p);
+      if (f.model) { f.x = L.hx; f.z = L.hz; f.y = LEDGE_Y; }    // 骨架人物：身體由爬上來的動作帶上去，結束時才移到平台上
+      else { f.x = L.hx + (L.ix - L.hx) * e; f.z = L.hz + (L.iz - L.hz) * e; f.y = LEDGE_Y * (1 - Math.min(1, p * 1.6)); }
+      if (p >= 1) {
+        f.ledge = null; f.y = 0; f.ground = true; f.ledgeCount = 0;
+        if (f.model) {                   // 移到動作結束時身體所在的位置：站起來 → 平台內 1.08；出擊、翻滾 → 剛爬到邊緣
+          const k = L.getup ? 0.68 : 1.15;   // 對準動作結束時身體實際所在的位置（爬上來的動作本身會往前移）
+          f.x = L.hx + (L.ix - L.hx) * k; f.z = L.hz + (L.iz - L.hz) * k;
+        }
+        if (L.getup === 'atk') startMove(f, 'getupAtk');                       // D：上來的同時出一擊
+        else if (L.getup === 'roll') f.roll = { t: 0, dx: L.nx, dz: L.nz };    // S：翻滾到平台內側
+        else f.lag = 0.14;                                                     // 一般爬上來：有短暫空檔
+      }
+      return;
+    }
+    // 抓到的瞬間平滑移到掛邊位置
+    const g = Math.min(1, L.t / 0.1);
+    f.x = L.sx + (L.hx - L.sx) * g; f.z = L.sz + (L.hz - L.sz) * g; f.y = L.sy + (LEDGE_Y - L.sy) * g;
+    if (!active) return;
+    const inward = c.mx * L.nx + c.mz * L.nz;
+    // 掛住後要等 ledgeWait 秒才能上來：對手有機會把人震下去，掛著的人也有時間決定要怎麼上來
+    const ready = L.t >= P.ledgeWait;
+    if (ready && !L.readyFx) { L.readyFx = true; puff(L.hx, 0.15, L.hz, { size: 0.12, life: 0.3, grow: 7, opacity: 0.8 }); }
+    // 等待期間按下的 W／D／S 會先記住（最後按的算數），時間一到立刻執行；按下時手邊閃一下表示有收到
+    const pick = c.take('jump') ? 'jump' : c.take('atk') ? 'atk' : c.take('roll') ? 'roll' : null;
+    if (pick) { L.queue = pick; if (!ready) puff(L.hx, 0.2, L.hz, { color: 0xffe9a8, size: 0.1, life: 0.22, grow: 6, opacity: 0.9 }); }
+    // 攀爬時間內角色一邊往上爬（可被震下）；時間到就執行記住的按鍵，沒有按就自動站上平台
+    if (ready && L.queue === 'jump') {   // W：從邊緣跳上來
+      releaseLedgeVisual(f);
+      f.ledge = null; f.ledgeCd = 0.5; f.y = Math.max(f.y, LEDGE_Y) + 0.01;
+      f.vy = P.jumpPower * 1.1; f.vx = L.nx * 2.5; f.vz = L.nz * 2.5;
+    } else if (ready) { L.climb = true; L.ct = 0; L.getup = L.queue === 'atk' ? 'atk' : L.queue === 'roll' ? 'roll' : null; }
+    else if (L.t > 0.25 && inward < -0.5) { releaseLedgeVisual(f); f.ledge = null; f.ledgeCd = 0.6; f.vy = -1; }   // 往外按：放手（隨時可以）
+    return;
+  }
+
+  const stunned = f.hitstun > 0 || f.dizzy > 0;
+  f.hitstun = Math.max(0, f.hitstun - dt);
+  f.dizzy = Math.max(0, f.dizzy - dt);
+  let ix = 0, iz = 0;
+
+  // ---- 防禦 ----
+  const wasShield = f.shielding;
+  f.shielding = false;
+  if (f.shieldStun > 0 && wasShield) f.shielding = true;
+  else if (active && !stunned && !f.move && !f.roll && f.ground && f.lag <= 0 && c.shieldHeld) f.shielding = true;
+  // 防禦（按住 S）：只能在地上、不能移動；沒有耐久值（D 系列會直接打穿）；放開後有 0.1 秒空檔
+  if (f.shielding) {
+    if (f.shieldStun <= 0 && c.take('roll')) {   // 防禦中連按方向 = 翻滾
+      let dx = c.rollDir ? c.rollDir.x : c.mx, dz = c.rollDir ? c.rollDir.z : c.mz, l = Math.hypot(dx, dz);
+      if (l < 0.3) { dx = f.x - o.x; dz = f.z - o.z; l = Math.hypot(dx, dz) || 1; }
+      f.roll = { t: 0, dx: dx / l, dz: dz / l }; f.shielding = false;
+    }
+  } else if (wasShield && !f.roll && !f.move && f.ground) f.lag = Math.max(f.lag, 0.1);
+
+  // ---- 可自由行動時：移動與出招 ----
+  const free = active && !stunned && !f.move && !f.roll && !f.dodge && f.lag <= 0 && !f.shielding;
+  if (free) {
+    ix = c.mx; iz = c.mz;
+    if (f.ground) {
+      if (c.take('grab')) startMove(f, 'grab');
+      else if (c.take('strong')) startMove(f, 'strong');
+      else if (c.take('lunge')) {        // 突進：面向指定方向衝出去
+        if (c.lungeDir) f.yaw = Math.atan2(c.lungeDir.x, c.lungeDir.z);
+        startMove(f, 'dash');
+      }
+      else if (c.take('atk')) startMove(f, 'jab1');
+      else if (c.take('taunt')) startMove(f, 'taunt');
+      else if (c.take('jump')) { f.vy = P.jumpPower; f.ground = false; f.y = 0.001; }
+      else if (c.take('roll')) {         // 翻滾閃避：往連按的方向（或正在按的方向）；都沒有就往面朝的方向
+        let dx = c.rollDir ? c.rollDir.x : c.mx, dz = c.rollDir ? c.rollDir.z : c.mz, l = Math.hypot(dx, dz);
+        if (l < 0.3) { dx = Math.sin(f.yaw); dz = Math.cos(f.yaw); l = 1; }
+        f.roll = { t: 0, dx: dx / l, dz: dz / l };
+        ix = iz = 0;
+      }
+    } else if (!f.helpless) {
+      if (c.take('strong')) startMove(f, 'slam');
+      else if (c.take('atk')) startMove(f, 'air');
+      else if (c.take('jump')) {         // 空中再按一次跳躍鍵 = 上升技（落地或抓邊後才能再用）
+        if (!f.specUsed) { startMove(f, 'upSpec'); puff(f.x, f.y, f.z, { size: 0.3, life: 0.25, grow: 5, opacity: 0.5 }); }
+      }
+    }
+  } else if (active && !stunned && !f.ground && (f.helpless || (f.move && f.move.id !== 'slam') || f.dodge)) {
+    ix = c.mx; iz = c.mz;                // 空中出招時仍可左右飄移
+  }
+  if (f.helpless) { ix *= 0.7; iz *= 0.7; }
+
+  if (f.move) stepMove(f, c, dt);
+  if (f.dodge) { f.dodge.t += dt; if (f.dodge.t >= 0.4) f.dodge = null; }
+
+  // ---- 面向：空閒時自動面向對手 ----
+  if (!f.move && !stunned && !f.roll && o.dead <= 0 && !o.out) turnTo(f, Math.atan2(o.x - f.x, o.z - f.z), 14, dt);
+
+  // ---- 移動積分 ----
+  const px = f.x, pz = f.z, py = f.y;
+  if (f.roll) {                          // 翻滾：固定路徑、中段無敵
+    const r = f.roll; r.t += dt;
+    const s = 14 * Math.max(0, 1 - r.t / 0.38);
+    f.vx = r.dx * s; f.vz = r.dz * s;
+    if (r.t >= 0.38) { f.roll = null; f.lag = 0.14; f.vx = f.vz = 0; }
+  } else if (f.ground) {
+    const [skx, skz] = sinkAt(f.x, f.z);  // 角落塌陷時被往那一角拉
+    const ax = ix * P.accel - P.gravity * Math.sin(tilt.z) + skx * P.collapsePull;
+    const az = iz * P.accel + P.gravity * Math.sin(tilt.x) + skz * P.collapsePull;
+    f.vx += ax * dt; f.vz += az * dt;
+    const d = Math.exp(-(f.hitstun > 0 ? 2 : P.damping) * dt);
+    f.vx *= d; f.vz *= d;
+  } else {
+    f.vx += ix * P.accel * P.airControl * dt; f.vz += iz * P.accel * P.airControl * dt;
+    const d = Math.exp(-(f.hitstun > 0 ? 0.55 : 2.2) * dt);
+    f.vx *= d; f.vz *= d;
+    f.vy -= P.airG * dt;
+    const slamming = f.move && f.move.id === 'slam' && f.move.phase === 'active';
+    if (f.vy < -MAX_FALL && !slamming) f.vy = -MAX_FALL;
+  }
+  f.x += f.vx * dt; f.z += f.vz * dt;
+  if (!f.ground) f.y += f.vy * dt;
+
+  const k2 = rhombus(f.x, f.z);
+  if (f.ground) {
+    if (k2 > 1) {
+      // 出招、翻滾、防禦中不會自己滑出平台；一般走動或被打退則會掉下去
+      if ((f.roll || f.shielding || f.move) && f.hitstun <= 0) { f.x = px; f.z = pz; f.vx = f.vz = 0; }
+      else if (f.hitstun <= 0 && f.edgeHold < EDGE_HOLD && Math.hypot(...sinkAt(f.x, f.z)) < 0.05) {
+        // 邊緣保護：自己走到邊緣時先停住 0.3 秒（搖晃），繼續往外才會掉下去。被打退、角落塌陷的拉力不保護
+        // 只有「按著往外」才會累積保護時間；只是被斜坡推過來、沒在操作時，就一直停在邊緣
+        const ol = Math.hypot(f.x, f.z) || 1;
+        if (f.edgeHold === 0 || (ix * f.x + iz * f.z) / ol > 0.3) f.edgeHold += dt;
+        const sc = 0.999 / k2; f.x *= sc; f.z *= sc;
+        const l = Math.hypot(f.x, f.z) || 1, nx = f.x / l, nz = f.z / l, vn = f.vx * nx + f.vz * nz;
+        if (vn > 0) { f.vx -= vn * nx; f.vz -= vn * nz; }
+      }
+      else { f.ground = false; f.y = 0; f.vy = Math.min(f.vy, 0); f.edgeHold = 0; }
+    } else if (f.edgeHold > 0 && k2 > 0.985) {
+      // 還貼在邊緣並持續往外推：保護時間繼續倒數（不然每次被擋住之間的空檔會讓保護拖太久）
+      const l = Math.hypot(f.x, f.z) || 1;
+      if ((ix * f.x + iz * f.z) / l > 0.3) f.edgeHold += dt;
+    } else if (k2 < 0.94) f.edgeHold = 0;        // 離開邊緣後重新計算
+  } else {
+    if (f.y <= 0 && py >= 0 && k2 <= 1 && f.vy <= 0) land(f);
+    else if (f.y < 0 && k2 < 1) {        // 從側面或下方撞到平台：推回邊緣外
+      const s = 1.001 / k2; f.x *= s; f.z *= s;
+      const l = Math.hypot(f.x, f.z) || 1, nx = f.x / l, nz = f.z / l, vn = f.vx * nx + f.vz * nz;
+      if (vn < 0) { f.vx -= vn * nx; f.vz -= vn * nz; }
+    }
+    if (active || game.state === 'over') tryLedge(f, dt);
+  }
+
+  // 被打飛時的殘影
+  if (f.hitstun > 0 && Math.hypot(f.vx, f.vy, f.vz) > 8) {
+    f.trailT -= dt;
+    if (f.trailT <= 0) { f.trailT = 0.03; puff(f.x, f.y + 1, f.z, { size: 0.22, life: 0.35, grow: 2.5, opacity: 0.45 }); }
+  }
+
+  // ---- 出界 ----
+  if (outOfBounds(f.x, f.y, f.z)) ko(f);
+}
+
+function pushApart(a, b) {               // 身體互相擠開（不交換速度）
+  if (a.dead > 0 || b.dead > 0 || a.out || b.out || a.grabbedBy || b.grabbedBy || a.roll || b.roll || a.ledge || b.ledge) return;
+  if (Math.abs(a.y - b.y) > 1.2) return;
+  let dx = b.x - a.x, dz = b.z - a.z;
+  const dist = Math.hypot(dx, dz);
+  if (dist >= 2 * BODY_R || dist < 1e-4) return;
+  dx /= dist; dz /= dist;
+  const o = (2 * BODY_R - dist) / 2;
+  a.x -= dx * o; a.z -= dz * o; b.x += dx * o; b.z += dz * o;
+}
+
+// =====================================================================
+// 比賽流程
+// =====================================================================
+const msgEl = document.getElementById('msg');
+function showMsg(t) { msgEl.textContent = t; msgEl.style.opacity = t ? 1 : 0; }
+const game = { state: 'count', t: 0, round: 0, winner: null, roundWinner: null };
+
+function resetFighter(f, side) {
+  Object.assign(f, {
+    vx: 0, vz: 0, vy: 0, y: 0, ground: true, pct: 0, out: false, dead: 0,
+    airJumps: 1, specUsed: false, dodgeUsed: false, helpless: false, move: null, hitstun: 0, dizzy: 0, lag: 0, invuln: 0,
+    shield: 100, shielding: false, shieldStun: 0, roll: null, dodge: null, ledge: null, ledgeCd: 0, grabbedBy: null,
+    spin: 0, hitT: 0, landT: 0, edgeHold: 0, ledgeCount: 0, closeCall: false,
+  });
+  [f.x, f.z] = fromUV(side * 3, 0);       // 每局開始：左右分開站
+  f.yaw = Math.atan2(-f.x, -f.z);
+}
+// 每一局：雙方回到起始位置，短暫 READY 後開打
+function startRound() {
+  resetFighter(player, -1); resetFighter(cpu, 1);
+  Object.assign(tilt, { x: 0, z: 0, vx: 0, vz: 0, y: 0, vy: 0 });
+  resetBearers();
+  Object.assign(ai, { think: 0.5, shieldT: 0, chargeT: 0, roll: null, jabs: 0, buf: {} });
+  human.buf = {};
+  game.round++;
+  game.state = 'intro'; game.t = 0; game.roundWinner = null;
+  for (const f of fighters) {                // 從高處落下
+    f.y = INTRO.height; f.vy = 0; f.ground = false; f.introT = 0;
+    f.introDelay = f === cpu ? INTRO.cpuDelay : 0;
+  }
+  slowT = 0; hitStop = 0;
+}
+function startMatch() {
+  player.wins = 0; cpu.wins = 0;
+  game.round = 0; game.winner = null;
+  startRound();
+  setPaused(false);
+}
+function endMatch(winner) {
+  if (game.state === 'over') return;
+  game.state = 'over'; game.winner = winner; game.t = 0;
+}
+function updateGame(dt) {
+  if (game.state === 'intro') {             // 兩人都落地、站穩之後才開始
+    game.t += dt; showMsg('');
+    const pullLen = rigAssets.clips.pull ? rigAssets.clips.pull.duration / INTRO.pullSpeed : 0.6;
+    const done = fighters.every(f => f.ground && f.introT >= INTRO.smash + pullLen + INTRO.after);
+    if (done || game.t > INTRO.maxTime) { game.state = 'play'; game.goT = 0.5; }
+  } else if (game.state === 'play' && game.goT > 0) {
+    game.goT -= dt; showMsg(game.goT > 0 ? 'GO' : '');
+  } else if (game.state === 'count') {
+    game.t -= dt;
+    showMsg(game.t > 0.45 ? 'READY' : 'GO');
+    if (game.t <= 0) { game.state = 'play'; showMsg(''); }
+  } else if (game.state === 'roundEnd') {
+    game.t += dt;
+    const w = game.roundWinner;
+    showMsg(`${w === player ? '你' : 'CPU'} 拿下這局`);
+    if (game.t > 2.2) {
+      if (w.wins >= P.roundsToWin) endMatch(w);
+      else startRound();
+    }
+  } else if (game.state === 'over') {
+    game.t += dt;
+    const w = game.winner;
+    showMsg(`${w === player ? '你贏了' : 'CPU 獲勝'}　${player.wins} － ${cpu.wins}\n按 R 再來一場`);
+  }
+}
+
+// =====================================================================
+// 骨架姿勢
+// =====================================================================
+const clampA = (v, a) => Math.max(-a, Math.min(a, v));
+function animateFighter(f, dt) {
+  const rig = f.rig, t = performance.now() / 1000;
+  if (f.dead > 0 || f.out) { f.mesh.visible = false; return; }
+  f.mesh.visible = !(f.invuln > 0 && Math.floor(t * 16) % 2 === 0);   // 無敵時閃爍
+  f.mesh.position.set(f.x, f.y, f.z);
+  f.mesh.rotation.y = f.yaw;
+
+  const fs = Math.sin(f.yaw), fc = Math.cos(f.yaw);
+  const local = (x, z) => [x * fc - z * fs, x * fs + z * fc];   // 平台座標 → [側向, 前方]
+  const sp = Math.hypot(f.vx, f.vz);
+  f.hitT = Math.max(0, f.hitT - dt * 2.5);
+  f.landT = Math.max(0, f.landT - dt * 4);
+
+  // 預設：格鬥架式
+  let crouch = 0.2, spread = 0.08, spineX = 0.1, spineZ = 0, spineY = 0, neckX = 0, spinX = 0, spinY = 0;
+  const swing = [0, 0], knee = [0, 0];
+  const arm = [{ x: -0.75, z: 0.15, el: -1.6 }, { x: -0.55, z: 0.15, el: -1.4 }];
+  const both = o => { Object.assign(arm[0], o); Object.assign(arm[1], o); };
+  let speed = 16, opacity = 1;
+  const m = f.move;
+
+  if (f.grabbedBy) {                          // 被抓住：癱軟
+    both({ x: 0.3, z: 0.3, el: -0.3 }); crouch = 0.1; spineX = -0.25; neckX = -0.3;
+    swing[0] = 0.2; swing[1] = -0.1;
+  } else if (f.ledge) {
+    if (f.ledge.climb) { both({ x: -1.2, z: 0.2, el: -1.2 }); crouch = 0.7; spineX = 0.5; }
+    else {                                           // 掛在邊緣：雙手高舉、身體懸空
+      both({ x: -3.0, z: 0.1, el: -0.1 }); crouch = 0.05; spineX = 0.05;
+      if (f.ledge.t < P.ledgeWait) {                 // 還不能上來：雙腳亂踢、掙扎
+        swing[0] = Math.sin(t * 9) * 0.45; swing[1] = -swing[0]; knee[0] = knee[1] = 0.35;
+      } else {                                       // 可以上來了：收腿準備
+        swing[0] = swing[1] = -0.7; knee[0] = knee[1] = 1.2; both({ x: -2.8, z: 0.1, el: -0.6 });
+      }
+    }
+  } else if (f.hitstun > 0) {
+    if (!f.ground) {                                 // 被打飛：翻滾、手腳亂揮
+      f.spin += dt * 11; spinX = -f.spin;
+      for (let i = 0; i < 2; i++) { arm[i] = { x: -1.6 + Math.sin(t * 14 + i * 3) * 0.8, z: 1.0, el: -0.5 }; swing[i] = Math.sin(t * 12 + i * 3) * 0.6; knee[i] = 0.7; }
+      crouch = 0.1; speed = 22;
+    } else {                                         // 地面受擊：上半身往後甩
+      const [hs, hw] = local(f.hitX, f.hitZ);
+      spineX += clampA(-hw * 0.1, 0.7); spineZ += clampA(hs * 0.1, 0.6); neckX = clampA(hw * 0.06, 0.4);
+      both({ x: -0.4, z: 0.7, el: -0.8 }); crouch = 0.3; speed = 26;
+    }
+  } else if (f.dizzy > 0) {                          // 破防暈眩：搖晃、雙手下垂
+    both({ x: 0.1, z: 0.2, el: -0.2 }); crouch = 0.35; spineX = 0.35; neckX = 0.4;
+    spineZ = Math.sin(t * 5) * 0.25; speed = 8;
+  } else if (f.roll) {                               // 翻滾：縮成一團轉一圈
+    spinX = (f.roll.t / 0.38) * Math.PI * 2;
+    both({ x: -1.3, z: -0.3, el: -2.0 }); crouch = 1.0; spineX = 0.6; speed = 30;
+  } else if (f.dodge) {                              // 空中閃避：縮身、半透明
+    both({ x: -1.0, z: -0.3, el: -1.9 }); swing[0] = swing[1] = -0.8; knee[0] = knee[1] = 1.4;
+    spinY = f.dodge.t / 0.4 * Math.PI * 2; opacity = 0.45; speed = 26;
+  } else if (m) {
+    speed = 30;
+    const act = m.phase === 'active', pre = m.phase === 'startup' || m.phase === 'charge';
+    if (m.id === 'jab1' || m.id === 'jab2') {        // 直拳：左右交替
+      const i = m.id === 'jab1' ? 0 : 1;
+      arm[i] = pre ? { x: -0.2, z: 0.2, el: -2.2 } : act ? { x: -1.55, z: -0.05, el: -0.05 } : { x: -1.2, z: 0, el: -0.7 };
+      spineY = (i ? 1 : -1) * (pre ? 0.3 : -0.45); spineX = 0.2;
+      swing[i] = -0.3; swing[1 - i] = 0.25;
+    } else if (m.id === 'jab3') {                    // 第三段：前踢
+      swing[0] = pre ? 0.3 : act ? -1.5 : -0.7; knee[0] = pre ? 1.2 : 0.1;
+      spineX = act ? -0.25 : 0.1; both({ x: -0.5, z: 0.5, el: -1.4 });
+    } else if (m.id === 'getupAtk') {                // 爬上來的掃擊
+      spineX = 0.5; spineY = act ? -0.6 : 0.4; crouch = 0.45;
+      arm[0] = { x: -1.4, z: act ? -0.5 : 0.9, el: -0.2 }; arm[1] = { x: -0.4, z: 0.4, el: -1.2 };
+    } else if (m.id === 'dash') {                    // 衝刺攻擊：肩撞
+      spineX = 0.75; spineY = 0.5; crouch = 0.35;
+      arm[0] = { x: -1.2, z: -0.5, el: -1.9 }; arm[1] = { x: 0.6, z: 0.3, el: -0.6 };
+      swing[0] = -0.8; knee[0] = 0.3; swing[1] = 0.6;
+    } else if (m.id === 'strong') {
+      if (pre) {                                     // 蓄力：雙手後拉、身體下沉並顫抖
+        const j = m.phase === 'charge' ? Math.sin(t * 60) * 0.04 * (1 + m.charge) : 0;
+        both({ x: 0.5 + j, z: 0.25, el: -2.0 }); crouch = 0.5 + m.charge * 0.15; spineX = -0.2 + j; spread = 0.2;
+      } else {                                       // 出手：雙掌前推
+        both({ x: -1.55, z: -0.1, el: -0.05 }); spineX = act ? 0.65 : 0.4; crouch = 0.3;
+        swing[0] = -0.8; knee[0] = 0.3; swing[1] = 0.6;
+      }
+    } else if (m.id === 'air') {                     // 空中迴旋踢
+      spinY = act ? m.pt / m.def.active * Math.PI * 2 : 0;
+      swing[0] = -1.3; knee[0] = 0.1; swing[1] = 0.7; knee[1] = 0.9;
+      both({ x: -0.3, z: 1.3, el: -0.3 });
+    } else if (m.id === 'slam') {
+      if (pre) { both({ x: -2.6, z: 0.3, el: -0.6 }); swing[0] = swing[1] = -1.0; knee[0] = knee[1] = 1.6; }
+      else if (act) { both({ x: -2.9, z: 0.25, el: -0.1 }); crouch = 0; spineX = -0.05; }        // 雙腳併攏下墜
+      else { both({ x: -0.9, z: 0.4, el: -0.3 }); crouch = 0.85; spineX = 0.5; spread = 0.25; }   // 落地重蹲
+    } else if (m.id === 'upSpec') {                  // 上升技：單手上勾、旋轉上升
+      arm[0] = { x: -3.0, z: 0.05, el: -0.05 }; arm[1] = { x: 0.3, z: 0.3, el: -0.8 };
+      swing[0] = 0.2; swing[1] = -0.5; knee[1] = 0.9; crouch = 0;
+      spinY = act ? m.pt / m.def.active * Math.PI * 4 : 0;
+    } else if (m.id === 'grab') {                    // 抓取：雙手往前撲
+      both(pre ? { x: -1.0, z: 0.7, el: -0.6 } : { x: -1.45, z: act ? 0.1 : 0.4, el: -0.3 });
+      spineX = 0.45; swing[0] = -0.5; swing[1] = 0.3;
+    } else if (m.id === 'hold') {
+      both({ x: -1.35, z: 0.05, el: -0.5 }); spineX = 0.2; crouch = 0.3; spread = 0.18;
+    } else if (m.id === 'throwRec') {
+      both({ x: -1.7, z: 0.2, el: -0.1 }); spineX = 0.55; swing[0] = -0.7; swing[1] = 0.5;
+    }
+  } else if (f.shielding) {                          // 防禦：蹲低、雙臂交叉
+    both({ x: -1.2, z: -0.4, el: -1.6 }); crouch = 0.55; spread = 0.26; spineX = 0.25; neckX = 0.15; speed = 24;
+  } else if (!f.ground) {
+    if (f.helpless) { both({ x: -0.3, z: 0.6, el: -0.4 }); swing[0] = -0.2; swing[1] = 0.2; knee[0] = knee[1] = 0.5; spineX = -0.1; }
+    else {
+      const rising = f.vy > 0;                       // 上升收腿、下降伸腳
+      swing[0] = rising ? -1.0 : -0.3; swing[1] = rising ? -0.5 : 0.1;
+      knee[0] = rising ? 1.5 : 0.5; knee[1] = rising ? 1.1 : 0.4;
+      both({ x: rising ? -1.9 : -1.1, z: 0.5, el: -0.6 }); crouch = 0; spineX = 0.12;
+    }
+  } else {
+    // 走動：依實際移動方向擺腿（面向對手時可能是後退或橫移）
+    const [vs, vw] = local(f.vx, f.vz);
+    const amp = Math.min(1, sp / 6);
+    f.walk += sp * dt * 2.2 * (vw < -0.5 ? -1 : 1);
+    swing[0] = Math.sin(f.walk) * 0.65 * amp; swing[1] = -swing[0];
+    knee[0] = Math.max(0, -Math.cos(f.walk)) * 0.9 * amp;
+    knee[1] = Math.max(0, Math.cos(f.walk)) * 0.9 * amp;
+    arm[0].x += swing[1] * 0.4; arm[1].x += swing[0] * 0.4;
+    spineX += clampA(vw * 0.03, 0.3); spineZ -= clampA(vs * 0.04, 0.3);
+    spineX += Math.sin(t * 2.2 + f.x) * 0.02;
+    if (f.lag > 0) crouch += 0.2;
+    // 靠近邊緣且沒在移動：揮手平衡
+    const ed = edgeDist(f.x, f.z);
+    if (f.edgeHold > 0 || (ed < 0.6 && sp < 2)) {
+      const w = f.edgeHold > 0 ? 1 : (0.6 - ed) / 0.6;
+      if (f.edgeHold > 0) { spineX -= 0.35; crouch += 0.15; }      // 邊緣保護中：身體後仰、搖晃
+      for (let i = 0; i < 2; i++) { arm[i].x = -1.3 + Math.sin(t * 16 + i * Math.PI) * 1.3 * w; arm[i].z = 0.4 + 0.8 * w; arm[i].el = -0.4; }
+    }
+  }
+
+  if (f.ground && !f.roll) {
+    // 平台傾斜時往高處傾；落地時屈膝緩衝
+    const [us, uw] = local(Math.sin(tilt.z), -Math.sin(tilt.x));
+    spineX += uw * 1.2; spineZ -= us * 1.2;
+    crouch += f.landT * 0.45;
+  }
+  if (!(f.hitstun > 0 && !f.ground)) f.spin = 0;
+
+  // ---- 套用 ----
+  const k = 1 - Math.exp(-dt * speed);
+  const to = (obj, prop, v) => { obj[prop] += (v - obj[prop]) * k; };
+  let hipY = 0;
+  rig.legs.forEach((l, i) => {
+    to(l.thigh.rotation, 'x', -crouch + swing[i]);
+    to(l.thigh.rotation, 'z', l.s * spread);
+    to(l.shin.rotation, 'x', 2 * crouch + knee[i]);
+    l.foot.rotation.x = -(l.thigh.rotation.x + l.shin.rotation.x);
+    const a1 = l.thigh.rotation.x, a2 = a1 + l.shin.rotation.x;
+    hipY = Math.max(hipY, LEG * Math.cos(a1) * Math.cos(l.thigh.rotation.z) + LEG * Math.cos(a2));
+  });
+  rig.hips.position.y = FOOT_H + hipY - BODY_Y;
+  rig.body.rotation.x = spinX; rig.body.rotation.y = spinY;
+  to(rig.spine.rotation, 'x', clampA(spineX, 1.1));
+  to(rig.spine.rotation, 'z', clampA(spineZ, 0.8));
+  to(rig.spine.rotation, 'y', spineY);
+  to(rig.neck.rotation, 'x', clampA(neckX - spineX * 0.4, 0.8));
+  rig.arms.forEach((a, i) => {
+    to(a.shoulder.rotation, 'x', arm[i].x);
+    to(a.shoulder.rotation, 'z', a.s * arm[i].z);
+    to(a.elbow.rotation, 'x', arm[i].el);
+  });
+  // 蓄力過半（可以硬吃 D）時身體發出金光
+  const glow = isArmored(f) ? 0.35 + 0.15 * Math.sin(t * 30) : 0;
+  if (glow !== f.glow) { f.glow = glow; for (const mt of f.mats) { mt.emissive.setHex(0xffb040); mt.emissiveIntensity = glow; } }
+  rig.bubble.visible = f.shielding;
+  if (f.shielding) rig.bubble.material.opacity = f.shieldStun > 0 ? 0.35 : 0.16;
+  if (f.shielding) rig.bubble.scale.setScalar(0.6 + 0.5 * Math.max(0, f.shield) / 100);
+  if (f.model) updateModel(f, dt, spinX, spinY);
+  if (f.opacity !== opacity) {           // 空中閃避時半透明
+    f.opacity = opacity;
+    rig.body.traverse(o => { if (o.isMesh) { o.material.transparent = opacity < 1; o.material.opacity = opacity; } });
+  }
+}
+
+// =====================================================================
+// 骨架人物（Mixamo）
+//   assets/character.fbx：人物本體（附帶 Body Block 動作）；idle / punch / hit：只有動作。
+//   載入完成前（或載入失敗時）沿用程式組成的方塊人。位移由遊戲物理控制，所以把動作的水平位移鎖住。
+// =====================================================================
+const CHAR_FILES = ['gi', 'character'];   // 角色模型檔（assets/ 裡），依序嘗試
+const rigAssets = { ready: false, base: null, clips: {}, impact: {}, scale: 1, missing: [] };
+// 動作檔對照表。lockY：連上下位移也鎖住（跳躍、下墜、爬上來的高度由遊戲物理控制）
+const RIG_CLIPS = {
+  idle:   { file: 'idle' },          // Fighting Idle
+  run:    { file: 'run' },           // Running
+  jab1:   { file: 'jab1',  impact: 'reach' },   // Punching
+  // win：這個動作要播的區段（原檔秒數）：start 起手開始、impact 命中、end 收手；amp：幅度放大的額外倍率
+  jab2:   { file: 'jab2',  win: { start: 0.08, impact: 0.5, end: 0.95 }, amp: 1.6 },   // Hook：最大轉身在 0.5 秒
+  jab3:   { file: 'jab3',  impact: 'reach' },   // Side Kick
+  lunge:  { file: 'lunge', impact: 'reach' },   // Mutant Swiping
+  strong: { file: 'strong', impact: 'reach' },  // Uppercut（備用：買來的 Push Punch R 載入失敗時才用）
+  air:    { file: 'air',   win: { start: 0.28, impact: 0.48, end: 1.58 }, amp: 1.4, ampLegsOnly: true, lockY: true },   // Hurricane Kick：連續旋轉，播約一圈半
+  slam:   { file: 'slam',  custom: true },          // Jump Attack（另外處理，見 buildSlamClip）
+  jump:   { file: 'jump',  lockY: true },       // Jumping Up
+  roll:   { file: 'roll' },          // Sprinting Forward Roll
+  hit:    { file: 'hit' },           // Hit Reaction
+  knock:  { file: 'knock', lockY: true },       // Falling Back
+  pull:   { file: 'pull' },
+  taunt:  { file: 'taunt' },                     // Silly Dancing：空白鍵嘲諷                      // Sumo High Pull：開場落地後蹲低站穩
+  climb:  { file: 'climb', keepRoot: true },     // Freehang Climb：保留身體往上、往前的位移
+};
+function lockRoot(clip, lockY, keepRoot) {   // 動作原地播放：鎖住髖部的水平位移（必要時連上下也鎖）；keepRoot 只鎖左右
+  for (const tr of clip.tracks) {
+    if (/Hips\.position$/.test(tr.name)) {
+      const v = tr.values;
+      for (let i = 3; i < v.length; i += 3) { v[i] = v[0]; if (keepRoot) continue; v[i + 2] = v[2]; if (lockY) v[i + 1] = v[1]; }
+    }
+  }
+  return clip;
+}
+// 找出動作的「命中瞬間」，用來和招式的判定時間對齊。
+//   reach：手或腳伸到最前面的時間點；low：雙手揮到最低的時間點（往下砸的動作）
+function findImpact(clip, mode) {
+  const tmp = SkeletonUtils.clone(rigAssets.base);
+  const mixer = new THREE.AnimationMixer(tmp);
+  mixer.clipAction(clip).play();
+  const hips = tmp.getObjectByName('mixamorigHips');
+  const pick = names => names.map(n => tmp.getObjectByName(n)).filter(Boolean);
+  const hands = pick(['mixamorigRightHand', 'mixamorigLeftHand']);
+  const ends = hands.concat(pick(['mixamorigRightFoot', 'mixamorigLeftFoot']));
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  let best = -Infinity, bt = 0;
+  for (let t = 0; t < clip.duration; t += 1 / 60) {
+    mixer.setTime(t); tmp.updateMatrixWorld(true);
+    hips.getWorldPosition(b);
+    if (mode === 'low') { for (const h of hands) { const v = -(h.getWorldPosition(a).y - b.y); if (v > best) { best = v; bt = t; } } }
+    else for (const h of ends) { const v = h.getWorldPosition(a).z - b.z; if (v > best) { best = v; bt = t; } }
+  }
+  return bt;
+}
+// Jump Attack：檔案開頭 0.45 秒是錯誤資料（身體在別的位置），而且原本是「原地起跳 → 往前跳 → 落地」。
+// 只取空中到落地的部分，並重新整理髖部位移：
+//   空中：高度固定在站立高度（實際高度交給遊戲物理），前後左右固定在原點 → 不會跑位
+//   落地之後：保留原本的下蹲（重擊落地的重量感）
+const SLAM_SRC = { start: 1.0, apex: 1.2, impact: 1.68, end: 2.5 };   // 原檔的時間點（秒）
+function buildSlamClip(raw, ref) {
+  const c = THREE.AnimationUtils.subclip(raw, 'slam', Math.round(SLAM_SRC.start * 30), Math.round(SLAM_SRC.end * 30), 30);
+  const imp = SLAM_SRC.impact - SLAM_SRC.start;
+  for (const tr of c.tracks) {
+    if (!/Hips\.position$/.test(tr.name)) continue;
+    const v = tr.values;
+    for (let i = 0; i < tr.times.length; i++) {
+      const t = tr.times[i];
+      v[i * 3] = ref.x; v[i * 3 + 2] = ref.z;
+      const w = Math.min(1, Math.max(0, (t - (imp - 0.08)) / 0.1));   // 落地前 0.08 秒開始接回原本的下蹲
+      v[i * 3 + 1] = ref.y * (1 - w) + v[i * 3 + 1] * w;
+    }
+  }
+  rigAssets.slamT = { apex: SLAM_SRC.apex - SLAM_SRC.start, impact: imp, end: c.duration };
+  return c;
+}
+// ---- 把其他骨架（Reallusion / ActorCore）的動作轉到 Mixamo 骨架 ----
+// 做法：兩邊都以第一格的 T 字站姿為基準，算出每根骨頭「相對於 T 字站姿」的世界旋轉，再套到對應的 Mixamo 骨頭上
+const CC_TO_MIXAMO = {
+  Hip: 'Hips', Waist: 'Spine', Spine01: 'Spine1', Spine02: 'Spine2', NeckTwist01: 'Neck', Head: 'Head',
+  L_Clavicle: 'LeftShoulder', L_Upperarm: 'LeftArm', L_Forearm: 'LeftForeArm', L_Hand: 'LeftHand',
+  R_Clavicle: 'RightShoulder', R_Upperarm: 'RightArm', R_Forearm: 'RightForeArm', R_Hand: 'RightHand',
+  L_Thigh: 'LeftUpLeg', L_Calf: 'LeftLeg', L_Foot: 'LeftFoot', L_ToeBase: 'LeftToeBase',
+  R_Thigh: 'RightUpLeg', R_Calf: 'RightLeg', R_Foot: 'RightFoot', R_ToeBase: 'RightToeBase',
+};
+for (const s of ['L', 'R']) for (const [cc, mx] of [['Thumb', 'Thumb'], ['Index', 'Index'], ['Mid', 'Middle'], ['Ring', 'Ring'], ['Pinky', 'Pinky']])
+  for (let i = 1; i <= 3; i++) CC_TO_MIXAMO[`${s}_${cc}${i}`] = `${s === 'L' ? 'Left' : 'Right'}Hand${mx}${i}`;
+
+function retargetCC(srcObj, srcClip, name, skipFrames = 2) {
+  const tgt = SkeletonUtils.clone(rigAssets.base);          // 目標：Mixamo 骨架（未套動作 = T 字站姿）
+  tgt.updateMatrixWorld(true);
+  const mixer = new THREE.AnimationMixer(srcObj);
+  mixer.clipAction(srcClip).play();
+  const pairs = [];                                          // 依目標骨架的層級順序（先父後子）
+  const seen = new Set();                                    // 人物檔裡有兩套同名骨架：只用第一套（也就是動作實際綁定的那套）
+  tgt.traverse(b => {
+    if (!b.isBone || seen.has(b.name)) return;
+    seen.add(b.name);
+    const key = Object.keys(CC_TO_MIXAMO).find(k => 'mixamorig' + CC_TO_MIXAMO[k] === b.name);
+    const src = key && srcObj.getObjectByName('CC_Base_' + key);
+    if (src) pairs.push({ tgt: b, src });
+  });
+  const q = () => new THREE.Quaternion(), v = () => new THREE.Vector3();
+  // 基準（T 字站姿）：來源第 0 格、目標的預設姿勢
+  mixer.setTime(0); srcObj.updateMatrixWorld(true);
+  for (const p of pairs) { p.srcRef = p.src.getWorldQuaternion(q()); p.tgtRef = p.tgt.getWorldQuaternion(q()); p.restLocal = p.tgt.quaternion.clone(); }
+  // 兩邊的「上方、正前方」可能不同：用髖部→頭（上）與左右肩（側）建立座標系，求出對齊旋轉
+  const frame = (o, hips, head, ls, rs) => {
+    const up = o.getObjectByName(head).getWorldPosition(v()).sub(o.getObjectByName(hips).getWorldPosition(v())).normalize();
+    const side = o.getObjectByName(rs).getWorldPosition(v()).sub(o.getObjectByName(ls).getWorldPosition(v()));
+    const fwd = v().crossVectors(up, side).normalize(); side.crossVectors(fwd, up).normalize();
+    return new THREE.Matrix4().makeBasis(side, up, fwd);
+  };
+  const Ms = frame(srcObj, 'CC_Base_Hip', 'CC_Base_Head', 'CC_Base_L_Upperarm', 'CC_Base_R_Upperarm');
+  const Mt = frame(tgt, 'mixamorigHips', 'mixamorigHead', 'mixamorigLeftArm', 'mixamorigRightArm');
+  const align = q().setFromRotationMatrix(Mt.clone().multiply(Ms.clone().invert())), alignInv = align.clone().invert();
+  const sHips = srcObj.getObjectByName('CC_Base_Hip'), tHips = tgt.getObjectByName('mixamorigHips');
+  const sHip0 = sHips.getWorldPosition(v()), tHip0 = tHips.getWorldPosition(v());
+  const sFoot = srcObj.getObjectByName('CC_Base_L_Foot').getWorldPosition(v()), tFoot = tgt.getObjectByName('mixamorigLeftFoot').getWorldPosition(v());
+  const ratio = (tHip0.y - tFoot.y) / Math.max(1e-6, sHip0.distanceTo(sFoot));
+  const fps = 30, n = Math.floor(srcClip.duration * fps) + 1, times = [], qv = new Map(), hp = [];
+  for (const p of pairs) qv.set(p, []);
+  const tmpQ = q(), parentQ = q(), wq = q(), d = v();
+  for (let i = skipFrames; i < n; i++) {
+    const t = i / fps; mixer.setTime(t); srcObj.updateMatrixWorld(true);
+    times.push((i - skipFrames) / fps);
+    for (const p of pairs) {
+      // 目標世界旋轉 = 對齊 · (來源現在 · 來源基準⁻¹) · 對齊⁻¹ · 目標基準
+      p.src.getWorldQuaternion(wq);
+      tmpQ.copy(wq).multiply(q().copy(p.srcRef).invert());
+      tmpQ.premultiply(align).multiply(alignInv).multiply(p.tgtRef);
+      p.tgt.parent.getWorldQuaternion(parentQ);
+      p.tgt.quaternion.copy(parentQ.invert().multiply(tmpQ));
+      p.tgt.updateMatrixWorld(true);
+      qv.get(p).push(...p.tgt.quaternion.toArray());
+    }
+    // 髖部位移（換算成目標的身高比例）
+    d.copy(sHips.getWorldPosition(v())).sub(sHip0).applyQuaternion(align).multiplyScalar(ratio);
+    const w = tHip0.clone().add(d);
+    tHips.parent.worldToLocal(w);
+    hp.push(w.x, w.y, w.z);
+  }
+  const tracks = pairs.map(p => new THREE.QuaternionKeyframeTrack(p.tgt.name + '.quaternion', times, qv.get(p)));
+  tracks.push(new THREE.VectorKeyframeTrack('mixamorigHips.position', times, hp));
+  return new THREE.AnimationClip(name, -1, tracks);
+}
+
+function attachModel(f) {
+  const model = SkeletonUtils.clone(rigAssets.base);
+  model.scale.setScalar(rigAssets.scale);
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    o.castShadow = true; o.frustumCulled = false;
+    const src = Array.isArray(o.material) ? o.material[0] : o.material;
+    let mt;
+    if (src && src.map) {                  // 有貼圖的角色（道服）：保留貼圖，CPU 整體染一點顏色以便分辨
+      src.map.colorSpace = THREE.SRGBColorSpace;
+      mt = new THREE.MeshStandardMaterial({ map: src.map, color: f.look.gi ?? 0xffffff, roughness: 0.85 });
+    } else {                               // 沒貼圖的 X Bot：用兩種顏色
+      const joint = /joint/i.test(o.name) || /joint/i.test((src && src.name) || '');
+      mt = new THREE.MeshStandardMaterial({ color: joint ? f.look.bottom : f.look.top, roughness: 0.6 });
+    }
+    o.material = mt; f.mats.push(mt);
+  });
+  const pivot = new THREE.Group();          // 繞身體中心轉：移動時轉向前進方向、上升技時旋轉
+  pivot.position.y = BODY_Y; model.position.y = -BODY_Y;
+  pivot.add(model); f.mesh.add(pivot);
+  const mixer = new THREE.AnimationMixer(model), actions = {};
+  for (const n in rigAssets.clips) actions[n] = mixer.clipAction(rigAssets.clips[n]);
+  f.model = { pivot, model, mixer, actions, cur: null, key: '', yawOff: 0, wasGround: true, airSeq: 0 };
+  f.rig.body.visible = false;               // 隱藏方塊人
+}
+async function loadRig() {
+  try {
+    const loader = new FBXLoader();
+    // 角色模型：先用道服角色（gi.fbx），讀不到才用 X Bot
+    let base;
+    for (const file of CHAR_FILES) {
+      try { base = await loader.loadAsync(`assets/${file}.fbx`); rigAssets.charFile = file; break; }
+      catch (err) { console.warn(`角色 ${file}.fbx 載入失敗`, err); }
+    }
+    if (!base) throw new Error('沒有角色模型');
+    const longest = obj => obj.animations.reduce((a, b) => (b.duration > a.duration ? b : a));   // 有些檔案會附帶一個空動作
+    rigAssets.base = base;
+    const clips = {};
+    if (base.animations.length) { clips.block = lockRoot(longest(base)); clips.block.name = 'block'; }   // X Bot 檔附帶的 Body Block
+    const names = Object.keys(RIG_CLIPS);
+    const res = await Promise.allSettled(names.map(n => loader.loadAsync(`assets/${RIG_CLIPS[n].file}.fbx`)));
+    const raw = {};
+    res.forEach((r, i) => {
+      const n = names[i];
+      if (r.status !== 'fulfilled' || !r.value.animations.length) { rigAssets.missing.push(n); return; }
+      raw[n] = longest(r.value);
+    });
+    if (!raw.idle) throw new Error('缺少待機動作');
+    // 動作檔（X Bot，公分）和角色骨架的單位、腿長可能不同：把髖部位移換算成這個角色的比例
+    {
+      const restHips = base.getObjectByName('mixamorigHips');
+      const idleHp = raw.idle.tracks.find(t => /Hips\.position$/.test(t.name));
+      const k = restHips && idleHp ? restHips.position.y / idleHp.values[1] : 1;
+      rigAssets.hipK = k;
+      if (Math.abs(k - 1) > 0.02) for (const n in raw) for (const tr of raw[n].tracks) if (/Hips\.position$/.test(tr.name)) for (let i = 0; i < tr.values.length; i++) tr.values[i] *= k;
+    }
+    // 以待機動作的髖部位置當作基準點
+    const hp = raw.idle.tracks.find(t => /Hips\.position$/.test(t.name));
+    const ref = { x: hp.values[0], y: hp.values[1], z: hp.values[2] };
+    for (const n in raw) {
+      const c = RIG_CLIPS[n].custom ? buildSlamClip(raw[n], ref) : lockRoot(raw[n], RIG_CLIPS[n].lockY, RIG_CLIPS[n].keepRoot);
+      c.name = n; clips[n] = c;
+    }
+    // A 的重擊：使用 ActorCore 的 Push Punch R（Reallusion 骨架），轉到 Mixamo 骨架上
+    try {
+      const src = await loader.loadAsync('assets/strong_src.fbx');
+      const c = lockRoot(retargetCC(src, longest(src), 'strong'));
+      clips.strong = c; rigAssets.strongSource = 'Push Punch R';
+    } catch (err) { console.warn('Push Punch R 轉換失敗，A 沿用 Uppercut：', err); rigAssets.strongSource = 'Uppercut'; }
+    // 掛邊：取「爬上來」動作最開頭的姿勢停住
+    if (clips.climb) clips.hang = THREE.AnimationUtils.subclip(clips.climb, 'hang', 0, 2, 30);
+    if (clips.climb) {                    // 爬上來動作的身體位移（相對於一開始），給「被震下／放手」時決定位置用
+      const tr = clips.climb.tracks.find(t => /Hips\.position$/.test(t.name));
+      const T = tr.times, v = tr.values, s = rigAssets.scale || 1;
+      let j0 = 0; while (j0 < T.length - 1 && T[j0] < 0.3) j0++;
+      rigAssets.climbRoot = t => {
+        let i = 0; while (i < T.length - 2 && T[i + 1] < t) i++;
+        const a = Math.max(0, Math.min(1, (t - T[i]) / (T[i + 1] - T[i] || 1)));
+        const y = v[i * 3 + 1] + (v[(i + 1) * 3 + 1] - v[i * 3 + 1]) * a, z = v[i * 3 + 2] + (v[(i + 1) * 3 + 2] - v[i * 3 + 2]) * a;
+        return { dy: (y - v[j0 * 3 + 1]) * rigAssets.scale, dz: (z - v[j0 * 3 + 2]) * rigAssets.scale };
+      };
+    }
+    if (clips.jump) { clips.upSpec = clips.jump.clone(); clips.upSpec.name = 'upSpec'; }   // 上升技用獨立的一份，發動時才能平滑銜接
+    // 角色身上沒有的骨頭（例如道服角色少了部分手指）：把那些動作軌道拿掉，避免大量警告
+    {
+      const have = new Set(); base.traverse(o => have.add(o.name));
+      for (const n in clips) clips[n].tracks = clips[n].tracks.filter(tr => have.has(tr.name.slice(0, tr.name.lastIndexOf('.'))));
+    }
+    rigAssets.clips = clips;
+    base.animations = [];
+    base.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(base);
+    rigAssets.height = box.max.y - box.min.y;
+    rigAssets.scale = 1.85 / rigAssets.height;        // 和方塊人一樣高（約 1.85）
+    for (const n of names) if (clips[n] && RIG_CLIPS[n].impact) rigAssets.impact[n] = findImpact(clips[n], RIG_CLIPS[n].impact);
+    for (const n of names) if (clips[n] && RIG_CLIPS[n].win) rigAssets.impact[n] = RIG_CLIPS[n].win.impact;
+    // 待機動作第一格的各關節旋轉，作為「誇大攻擊動作」的基準
+    {
+      const tmp = SkeletonUtils.clone(base), mx = new THREE.AnimationMixer(tmp);
+      mx.clipAction(clips.idle).play(); mx.setTime(0);
+      rigAssets.refPose = {};
+      tmp.traverse(o => { if (o.isBone) rigAssets.refPose[o.name] = o.quaternion.clone(); });
+    }
+    for (const f of fighters) attachModel(f);
+    rigAssets.ready = true;
+    if (rigAssets.missing.length) console.warn('這些動作沒有載入，會用其他動作代替：', rigAssets.missing.join(', '));
+  } catch (err) { console.warn('骨架人物載入失敗，沿用方塊人：', err); }
+  loadDone.rig = true;
+}
+
+// 招式 → 動作
+const MOVE_CLIP = { jab1: 'jab1', jab2: 'jab2', jab3: 'jab3', dash: 'lunge', getupAtk: 'jab3', air: 'air', slam: 'slam', upSpec: 'upSpec' };
+// 依遊戲狀態決定要播哪個動作。回傳 { want, key, loop, ts, startAt, yaw, spin }
+function pickClip(f) {
+  const M = f.model, m = f.move, C = rigAssets.clips, sp = Math.hypot(f.vx, f.vz);
+  const r = { want: 'idle', key: 'idle', loop: true, ts: 1, startAt: 0, yaw: null, spin: false, fade: 0.15 };
+  const once = (want, key, ts = 1, startAt = 0, fade = 0.06) => Object.assign(r, { want, key, loop: false, ts, startAt, fade });
+  if (game.state === 'intro' && f.introT !== undefined) {
+    if (!f.ground) Object.assign(r, { want: 'slam', key: 'intro' + game.round, loop: false, fade: 0.05, slam: 'active' });   // 往下砸
+    else if (f.introT < INTRO.smash) Object.assign(r, { want: 'slam', key: 'intro' + game.round, loop: false, slam: 'recovery' });   // 落地重擊
+    else once('pull', 'pull' + game.round, INTRO.pullSpeed, 0, 0.18);   // 蹲低、拉起站穩
+    return r;
+  }
+  if (f.ledge) {
+    once('climb', 'climb' + f.ledgeCount, 0, 0.3, 0.1);
+    if (f.ledge.climb) { r.climb = Math.min(1, f.ledge.ct / CLIMB_DUR[f.ledge.getup || 'up']); r.getup = f.ledge.getup; }
+    else r.climbT = ledgeClipTime(f.ledge);          // 攀爬時間內：一邊往上爬
+  } else if (f.hitstun > 0) {
+    if (!f.ground) once('knock', 'knock' + f.hitSeq, 1.2);
+    else once('hit', 'hit' + f.hitSeq, 1.4);
+  } else if (f.roll) {
+    once('roll', 'roll' + f.roll.dx.toFixed(2) + f.roll.dz.toFixed(2) + (f.roll.t < 0.03 ? 'a' : 'b'), C.roll ? C.roll.duration / 0.4 : 1);
+    r.key = 'roll'; r.yaw = Math.atan2(f.roll.dx, f.roll.dz);
+  } else if (f.shielding) {
+    Object.assign(r, { want: 'block', key: 'guard', fade: 0.06 });      // 防禦：Body Block
+  } else if (m && m.id === 'taunt') {
+    once('taunt', 'taunt' + m.uid, 1, 0, 0.15);                         // 嘲諷：Silly Dancing
+  } else if (m && m.id === 'strong') {
+    if (m.phase === 'startup' || m.phase === 'charge') {              // 蓄力：上勾拳的蓄勢姿勢慢慢往後拉，停在出拳前
+      const imp = rigAssets.impact.strong ?? 0.5;
+      Object.assign(r, { want: 'strong', key: 'strong' + m.uid, loop: false, ts: 0.35, startAt: Math.max(0, imp - 0.35), fade: 0.08 });
+      r.charge = imp - 0.1;
+    } else attack('strong', m, 0.04);
+  } else if (m && m.id === 'slam') {
+    Object.assign(r, { want: 'slam', key: 'slam' + m.uid, loop: false, fade: 0.08, slam: m.phase });
+  } else if (m && MOVE_CLIP[m.id]) {
+    attack(MOVE_CLIP[m.id], m, m.def.startup || 0.05);
+    if (m.id === 'upSpec') r.spin = true;
+  } else if (!f.ground) {
+    once('jump', 'air' + M.airSeq, 1.3, C.jump ? C.jump.duration * 0.3 : 0, 0.1);   // 略過起跳前的下蹲
+    r.fadeOut = 0.06;
+  } else if (sp > 1.2) {
+    Object.assign(r, { want: 'run', key: 'run', ts: Math.max(0.6, sp / 5.5), yaw: Math.atan2(f.vx, f.vz) });   // 跑步時轉向前進方向
+  }
+  return r;
+  // 攻擊動作：讓「命中瞬間」對上判定開始；收招部分依招式長度加快
+  //   起手：從命中前 0.3 秒開始播（保留蓄勢的動作），加速到剛好在判定開始時打到最遠
+  //   收招：從命中點往後播 0.4 秒（把手腳收回來），長度配合招式的判定＋收招時間，之後接下一段或待機
+  function attack(name, mv, lead) {
+    const n = C[name] ? name : 'jab1', imp = rigAssets.impact[n] ?? 0.3, win = RIG_CLIPS[n] && RIG_CLIPS[n].win;
+    const start = win ? win.start : Math.max(0, imp - 0.3), follow = win ? win.end - imp : Math.min(0.4, C[n].duration - imp);
+    const elapsed = mv.phase === 'startup' ? mv.pt : lead;         // 中途接上時（例如連段）不要重播起手
+    const ts1 = Math.max(1, Math.min(6, (imp - start) / Math.max(0.04, lead)));
+    const ts2 = Math.max(0.8, Math.min(3.2, follow / ((mv.def.active || 0.1) + (mv.def.recovery || 0.3))));
+    once(n, name + mv.uid, ts1, Math.min(imp, start + elapsed * ts1), 0.09);
+    r.atk = { imp, ts1, ts2, end: imp + follow, amp: (RIG_CLIPS[n] && RIG_CLIPS[n].amp) || 1, legsOnly: !!(RIG_CLIPS[n] && RIG_CLIPS[n].ampLegsOnly) };
+  }
+}
+// 誇大攻擊動作：以待機姿勢為基準，把上半身、手臂、腿的旋轉幅度乘上 animAmp
+const AMP_BONES = ['Spine', 'Spine1', 'Spine2', 'Neck', 'LeftShoulder', 'RightShoulder', 'LeftArm', 'RightArm',
+  'LeftForeArm', 'RightForeArm', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg'].map(n => 'mixamorig' + n);
+const _q = new THREE.Quaternion(), _qi = new THREE.Quaternion();
+function exaggerate(f, dt) {
+  const M = f.model;
+  M.amp = (M.amp ?? 0) + ((M.isAtk ? 1 : 0) - (M.amp ?? 0)) * Math.min(1, dt * 12);   // 平滑進出，不會突然變形
+  const k = 1 + (P.animAmp - 1) * (M.atkAmp || 1) * M.amp;
+  if (k <= 1.001 || !rigAssets.refPose) return;
+  if (!M.ampBones) M.ampBones = AMP_BONES.map(n => M.model.getObjectByName(n)).filter(Boolean);
+  for (const b of M.ampBones) {
+    if (M.legsOnly && !/Leg/.test(b.name)) continue;
+    const ref = rigAssets.refPose[b.name];
+    if (!ref) continue;
+    _qi.copy(ref).invert();
+    _q.copy(_qi).multiply(b.quaternion);            // 相對於待機姿勢的轉動
+    if (_q.w < 0) { _q.x = -_q.x; _q.y = -_q.y; _q.z = -_q.z; _q.w = -_q.w; }
+    const ang = 2 * Math.acos(Math.min(1, _q.w));
+    if (ang < 1e-4) continue;
+    // 大角度的轉動（例如旋轉踢）放大會翻轉變形：60° 以內完整放大，超過後逐漸減弱，140° 以上不放大
+    const fall = Math.max(0, Math.min(1, 1 - (ang - 1.05) / 1.4));
+    const s = Math.sin(ang / 2), na = Math.min(Math.PI * 0.92, ang * (1 + (k - 1) * fall));
+    _q.set(_q.x / s * Math.sin(na / 2), _q.y / s * Math.sin(na / 2), _q.z / s * Math.sin(na / 2), Math.cos(na / 2));
+    b.quaternion.copy(ref).multiply(_q);
+  }
+}
+function updateModel(f, dt, spinX, spinY) {
+  const M = f.model, C = rigAssets.clips;
+  if (M.wasGround && !f.ground) M.airSeq++;
+  M.wasGround = f.ground;
+  const r = pickClip(f);
+  if (!C[r.want]) { r.want = C.jab1 && !r.loop ? 'jab1' : 'idle'; }      // 缺少的動作用現有的代替
+  if (r.key !== M.key) {
+    M.key = r.key;
+    const act = M.actions[r.want];
+    act.reset(); act.enabled = true;
+    act.setLoop(r.loop ? THREE.LoopRepeat : THREE.LoopOnce, Infinity); act.clampWhenFinished = !r.loop;
+    act.time = r.startAt; act.timeScale = r.ts;
+    act.play();
+    const fade = M.cur && M.cur.getClip().name === 'jump' && f.ground ? 0.06 : r.fade;   // 落地時快一點接回站姿，腳才不會懸空
+    // 爬上來的動作帶有往上的位移：結束時立刻切換，不淡出，否則身體會短暫停在半空中
+    if (M.cur && M.cur !== act && M.cur.getClip().name === 'climb' && !f.ledge) { M.cur.stop(); act.setEffectiveWeight(1); }
+    else if (M.cur && M.cur !== act) M.cur.crossFadeTo(act, fade, false);
+    M.cur = act;
+  }
+  if (r.want === 'run') M.cur.timeScale = r.ts;                           // 跑步速度跟著移動速度
+  if (r.climbT !== undefined) { M.cur.time = r.climbT; M.cur.timeScale = 0; }
+  if (r.charge !== undefined && M.cur.time >= r.charge) M.cur.timeScale = 0;   // 蓄力：停在出拳前
+  if (r.climb !== undefined) {                                           // 爬上來：拉上去 → 快速帶過跪在邊緣的部分 → 站起來
+    const map = r.getup ? [[0, 3.6], [1, 4.2]]      // 出擊／翻滾：剛站起就接下一個動作
+                        : [[0, 3.6], [1, 5.4]];     // 站上平台
+    let t = map[map.length - 1][1];
+    for (let i = 1; i < map.length; i++) if (r.climb <= map[i][0]) { const [p0, t0] = map[i - 1], [p1, t1] = map[i]; t = t0 + (t1 - t0) * (r.climb - p0) / (p1 - p0); break; }
+    M.cur.time = Math.min(t, M.cur.getClip().duration - 0.01); M.cur.timeScale = 0;
+  }
+  if (r.atk) {                                                            // 攻擊：起手快、收招配合招式時間，播到收手的位置就停住
+    const a = M.cur;
+    a.timeScale = a.time < r.atk.imp ? r.atk.ts1 : a.time < r.atk.end ? r.atk.ts2 : 0.05;
+  }
+  M.isAtk = !!r.atk; M.atkAmp = r.atk ? r.atk.amp : M.atkAmp || 1; M.legsOnly = r.atk ? r.atk.legsOnly : false;
+  if (hitStop > 0) dt *= 0.05;                                            // 打擊停格：動作也一起停住
+  if (r.slam && rigAssets.slamT) {                                       // 下墜重擊：三段配合遊戲的實際時間
+    const T = rigAssets.slamT, a = M.cur, def = MOVES.slam;
+    if (r.slam === 'startup') a.timeScale = T.apex / def.startup;          // 起跳到最高點
+    else if (r.slam === 'active') {                                        // 下墜：剛好在落地瞬間揮到底
+      const fall = Math.max(0.05, f.y / Math.max(4, -f.vy));
+      a.timeScale = Math.max(0.25, Math.min(3, (T.impact - 0.02 - a.time) / fall));
+      if (a.time >= T.impact - 0.02) a.timeScale = 0.02;
+    } else {                                                               // 落地：從重擊瞬間接著播完收招
+      if (a.time < T.impact) a.time = T.impact;
+      a.timeScale = (T.end - T.impact) / (def.recovery + 0.25);
+    }
+  }
+  M.mixer.update(dt);
+  exaggerate(f, dt);
+  // 身體朝向：跑步和翻滾時轉向移動方向，其他時候面向對手
+  let target = r.yaw === null ? 0 : r.yaw - f.yaw;
+  target = Math.atan2(Math.sin(target), Math.cos(target));
+  let d = target - M.yawOff; d = Math.atan2(Math.sin(d), Math.cos(d));
+  M.yawOff += d * Math.min(1, dt * 14);
+  M.pivot.rotation.set(0, M.yawOff + (r.spin ? spinY : 0), 0);
+  // 掛邊、爬上來：把身體往下、往平台方向移，讓雙手剛好搭在平台邊緣（只在掛邊時套用，爬完瞬間取消）
+  const hangK = f.ledge ? (f.ledge.climb ? 1 : Math.min(1, f.ledge.t / 0.1)) : 0;
+  M.pivot.position.set(0, BODY_Y + HANG_OFF.y * hangK, HANG_OFF.z * hangK);
+}
+loadRig();
+
+// =====================================================================
+// 鏡頭：自動把雙方都框在畫面裡
+// =====================================================================
+const camMid = new THREE.Vector3(0, 0, 0), camPos = new THREE.Vector3();
+let camZoom = 1;
+const camFocus = { f: null, t: 0 };
+const _v = new THREE.Vector3();
+function updateCamera(dt) {
+  const pts = fighters.filter(f => !f.out && f.dead <= 0)
+    .map(f => platform.localToWorld(_v.set(f.x, Math.max(f.y, -4) + 0.9, f.z).clone()));
+  const mid = new THREE.Vector3();
+  let spreadW = 0;
+  if (pts.length) {
+    for (const p of pts) mid.add(p);
+    mid.multiplyScalar(1 / pts.length);
+    if (pts.length > 1) spreadW = pts[0].distanceTo(pts[1]);
+  }
+  // 有人在場外（或掛在邊緣）：鏡頭對準兩人中間並拉近；平常最近只拉到 camZoomMin，焦點偏向平台中心
+  const off = fighters.some(f => !f.out && f.dead <= 0 && (f.ledge || (!f.ground && (rhombus(f.x, f.z) > 1 || f.y < -0.2))));
+  const CAM_REF_W = 30.2;                  // 鏡頭遠近當初是照菱形平台（寬 26.2）調的：以它為基準
+  let zoomT, rate = 3.5;
+  if (off) { zoomT = Math.max(0.42, Math.min(1.7, (spreadW + 9) / CAM_REF_W)); mid.y -= 0.8; rate = 5; }
+  else { zoomT = Math.max(P.camZoomMin, Math.min(1.7, (spreadW + 14) / CAM_REF_W)); mid.multiplyScalar(0.55).add(_v.set(0, -0.6, 0)); }
+  // 千鈞一髮：短暫把鏡頭偏向被打飛的人並再拉近一點
+  camFocus.t -= dt;
+  if (camFocus.t > 0 && camFocus.f && camFocus.f.dead <= 0) {
+    const fp = platform.localToWorld(_v.set(camFocus.f.x, Math.max(camFocus.f.y, -4) + 0.9, camFocus.f.z).clone());
+    mid.lerp(fp, 0.6); zoomT = Math.max(0.4, zoomT * 0.8); rate = 8;
+  }
+  vigEl.style.opacity = game.state !== 'play' ? 0 : slowT > 0 ? 1 : (someoneHanging() && P.ledgeSlow < 1 ? 0.6 : 0);
+  const k = 1 - Math.exp(-dt * rate);
+  camMid.lerp(mid, k);
+  camZoom += (zoomT * (0.68 + 0.32 * (platScreenW() + 4) / CAM_REF_W) - camZoom) * k;   // 平台越小鏡頭越近，畫面裡平台的大小維持一樣
+  shake = Math.max(0, shake - dt * 2.5);
+  camPos.copy(CAM_BASE).multiplyScalar(aspectK * camZoom).add(camMid);
+  camera.position.copy(camPos).add(_v.set((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake));
+  camera.lookAt(camMid.x, camMid.y + camLookY * camZoom, camMid.z);
+}
+
+// =====================================================================
+// HUD
+// =====================================================================
+const cards = fighters.map((f, i) => {
+  const el = document.getElementById('card' + i);
+  const gauge = el.querySelector('.gauge');
+  gauge.innerHTML = Array.from({ length: 10 }, (_, k) => `<span class="${k >= 7 ? 'hi' : k >= 4 ? 'mid' : ''}"></span>`).join('');
+  return { f, gauge, cells: [...gauge.children], wins: el.querySelector('.wins'), lastN: -1, lastWins: '' };
+});
+const timerEl = document.getElementById('timer');
+// 受傷值 → 0～10 格（有受傷就至少亮 1 格）
+const gaugeCells = f => Math.min(10, Math.ceil(f.pct / GAUGE_STEP - 1e-6));
+function updateHud() {
+  for (const c of cards) {
+    const n = gaugeCells(c.f);
+    if (n !== c.lastN) {
+      c.lastN = n;
+      c.cells.forEach((el, k) => el.classList.toggle('on', k < n));
+      c.gauge.classList.toggle('danger', n >= 8);
+    }
+    const w = `${c.f.wins}/${P.roundsToWin}`;
+    if (w !== c.lastWins) {
+      c.lastWins = w;
+      c.wins.innerHTML = Array.from({ length: P.roundsToWin }, (_, k) => `<span class="${k < c.f.wins ? 'won' : ''}"></span>`).join('');
+    }
+  }
+  const sc = `${player.wins} － ${cpu.wins}`;
+  if (timerEl.textContent !== sc) timerEl.textContent = sc;   // 有變才改，避免每格重排版面
+}
+
+// =====================================================================
+// 暫停、鏡頭按鍵、面板
+// =====================================================================
+let paused = false;
+const pauseEl = document.getElementById('pause');
+function setPaused(v) {
+  paused = v;
+  pauseEl.classList.toggle('on', v);
+  msgEl.style.visibility = v ? 'hidden' : '';
+  human.buf = {};
+}
+const camHold = { elev: 0, dist: 0 };
+function cameraKeys(dt) {
+  const elev = (keys.has('KeyE') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0) + camHold.elev;
+  const dist = (keys.has('KeyX') ? 1 : 0) - (keys.has('KeyZ') ? 1 : 0) + camHold.dist;
+  if (!elev && !dist) return;
+  P.camY = Math.max(CAM_Y_MIN, Math.min(CAM_Y_MAX, P.camY + elev * 15 * dt));
+  P.camDist = Math.round(Math.max(8, Math.min(50, P.camDist + dist * 15 * dt)) * 10) / 10;
+  inputs.camDist.value = P.camDist;
+  refreshLabels();
+  resize();
+}
+
+const slidersEl = document.getElementById('sliders');
+const inputs = {}, valueEls = {};
+const capture = (el, e) => { try { el.setPointerCapture(e.pointerId); } catch {} };
+function holdButton(b, axis, dir) {
+  b.addEventListener('pointerdown', e => { camHold[axis] = dir; capture(b, e); });
+  const stop = () => { camHold[axis] = 0; b.blur(); };
+  b.addEventListener('pointerup', stop);
+  b.addEventListener('pointercancel', stop);
+}
+for (const [title, items] of GROUPS) {
+  const h = document.createElement('h4'); h.textContent = title; slidersEl.appendChild(h);
+  for (const [k, [name, min, max, step]] of Object.entries(items)) {
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<label><span>${name}</span><span></span></label>
+      <input type="range" min="${min}" max="${max}" step="${step}">`;
+    const input = row.querySelector('input');
+    valueEls[k] = row.querySelector('label span:last-child');
+    input.value = P[k];
+    input.addEventListener('input', () => {
+      P[k] = +input.value; refreshLabels();
+      if (k === 'platW' || k === 'platD' || k === 'thick' || k === 'bearPerEdge') { buildSlab(); buildBearers(); }
+      if (k === 'brightness') applyLighting();
+      if (k === 'camDist') resize();
+      if (k === 'resScale') { renderer.setPixelRatio(Math.min(devicePixelRatio, P.resScale)); resize(); }
+    });
+    input.addEventListener('keydown', e => e.preventDefault());
+    input.addEventListener('pointerup', () => input.blur());
+    inputs[k] = input;
+    slidersEl.appendChild(row);
+  }
+  if (title === '畫面') {
+    const box = document.createElement('div');
+    box.className = 'camBtns';
+    for (const [label, dir] of [['＋ 鏡頭拉近（Z）', -1], ['－ 鏡頭拉遠（X）', 1]]) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      holdButton(b, 'dist', dir);
+      box.appendChild(b);
+    }
+    slidersEl.appendChild(box);
+  }
+}
+function refreshLabels() { for (const k in valueEls) valueEls[k].textContent = P[k]; }
+document.getElementById('resetParams').addEventListener('click', e => {
+  Object.assign(P, DEFAULTS);
+  for (const k in inputs) inputs[k].value = P[k];
+  refreshLabels(); buildSlab(); buildBearers(); applyLighting(); resize(); e.target.blur();
+});
+refreshLabels();
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  if (!w || !h) return;                       // 視窗被縮到看不見時（大小 0）先不更新，避免鏡頭比例變成無效值
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  updateCamBase();
+  aspectK = Math.max(1, 2.0 / camera.aspect);   // 畫面較窄時把鏡頭拉遠
+  camera.updateProjectionMatrix();
+  updateRail();
+}
+
+// 左側鏡頭升降軌
+const railTrack = document.querySelector('#camRail .track');
+const railThumb = document.querySelector('#camRail .thumb');
+const railFill = document.querySelector('#camRail .fill');
+const railVal = document.getElementById('camYVal');
+function updateRail() {
+  const f = (P.camY - CAM_Y_MIN) / (CAM_Y_MAX - CAM_Y_MIN);
+  railThumb.style.bottom = `calc(${f * 100}% - 9px)`;
+  railFill.style.height = `${f * 100}%`;
+  railVal.textContent = P.camY.toFixed(1);
+}
+function railFromPointer(e) {
+  const r = railTrack.getBoundingClientRect();
+  const f = Math.max(0, Math.min(1, 1 - (e.clientY - r.top) / r.height));
+  P.camY = CAM_Y_MIN + f * (CAM_Y_MAX - CAM_Y_MIN);
+  resize();
+}
+let railDrag = false;
+railTrack.addEventListener('pointerdown', e => { railDrag = true; railFromPointer(e); capture(railTrack, e); });
+railTrack.addEventListener('pointermove', e => { if (railDrag) railFromPointer(e); });
+railTrack.addEventListener('pointerup', () => { railDrag = false; });
+railTrack.addEventListener('pointercancel', () => { railDrag = false; });
+railTrack.addEventListener('wheel', e => {
+  e.preventDefault();
+  P.camY = Math.max(CAM_Y_MIN, Math.min(CAM_Y_MAX, P.camY - e.deltaY * 0.02));
+  resize();
+}, { passive: false });
+for (const b of document.querySelectorAll('#camRail button')) holdButton(b, 'elev', +b.dataset.d);
+
+addEventListener('resize', resize);
+resize();
+
+// =====================================================================
+// 主迴圈（固定 120Hz 物理步長）
+// =====================================================================
+window.__sumo = { retargetCC, rigAssets, player, cpu, P, game, human, ai, tilt, bearers, corners, camera, platform, MOVES, isPaused: () => paused };   // 除錯用
+const STEP = 1 / 120;
+let acc = 0, last = performance.now();
+startMatch();
+
+// 幀數顯示（F 鍵開關）：每 0.5 秒更新一次平均 FPS 與最慢的一格
+const fpsEl = document.getElementById('fps');
+if (document.body.dataset.build === 'public') fpsEl.style.display = 'none';   // 朋友版預設不顯示 FPS（按 F 打開）
+const fpsStat = { n: 0, t: 0, worst: 0, last: performance.now() };
+function updateFps(now) {
+  const ms = now - fpsStat.last; fpsStat.last = now;
+  fpsStat.n++; fpsStat.t += ms; fpsStat.worst = Math.max(fpsStat.worst, ms);
+  if (fpsStat.t >= 500) {
+    fpsEl.textContent = `${Math.round(fpsStat.n * 1000 / fpsStat.t)} FPS　最慢 ${fpsStat.worst.toFixed(0)} ms`;
+    fpsStat.n = 0; fpsStat.t = 0; fpsStat.worst = 0;
+  }
+}
+function frame(now) {
+  updateFps(now);
+  const realDt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  cameraKeys(realDt);
+  if (!loadDone.shown) {                    // 載入中：先不開始比賽
+    const n = (loadDone.rig ? 1 : 0) + (loadDone.bear ? 1 : 0) + (loadDone.mat ? 1 : 0);
+    document.querySelector('#loading .bar i').style.width = `${15 + n * 28}%`;
+    if (n === 3 || performance.now() - loadDone.t0 > 40000) {
+      loadDone.shown = true;
+      const el = document.getElementById('loading'); el.style.opacity = 0; setTimeout(() => el.remove(), 600);
+      startMatch();
+    } else { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
+  }
+  if (paused) { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
+
+  let dt = realDt;
+  if (slowT > 0) { slowT -= realDt; dt *= 0.3; }       // 決勝瞬間慢動作
+  else if (game.state === 'play' && someoneHanging()) { dt *= P.ledgeSlow; ledgeClock = 1 / P.ledgeSlow; }   // 有人掛在邊緣：整個遊戲放慢，拉高張力
+  else ledgeClock = 1;
+  if (hitStop > 0) hitStop -= realDt; else acc += dt;  // 打擊停格
+  while (acc >= STEP) {
+    const active = game.state === 'play';
+    updateHuman(STEP);
+    updateAI(STEP);
+    stepBearers(STEP);
+    stepTilt(STEP);
+    stepFighter(player, human, STEP, active);
+    stepFighter(cpu, ai, STEP, active);
+    pushApart(player, cpu);
+    processHits(player, cpu);
+    processHits(cpu, player);
+    stepFx(STEP);
+    acc -= STEP;
+  }
+  updateGame(dt);
+  platform.rotation.set(tilt.x, 0, tilt.z);
+  platform.position.y = tilt.y;
+  animateBearers(dt);
+  for (const f of fighters) { animateFighter(f, dt); updateGrip(f); }
+  updateCamera(realDt);
+  updateHud();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
