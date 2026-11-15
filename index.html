@@ -346,7 +346,7 @@ function loadTatami() {
     loadDone.mat = true;
   };
   img.onerror = () => { loadDone.mat = true; };
-  img.src = 'assets/tatami/color.jpg';
+  img.src = 'color.jpg';
 }
 const slab = new THREE.Mesh(undefined, slabSide);              // 平台本體（在墊子底下）
 slab.receiveShadow = slab.castShadow = true;
@@ -800,7 +800,7 @@ buildBearers();
 
 // =====================================================================
 // 扛平台的人（道服角色版）
-//   模型：assets/gi_bearer.glb（道服角色的減面版：3600 面、22 根骨頭，給 32 個人用）
+//   模型：gi_bearer.glb（道服角色的減面版：3600 面、22 根骨頭，給 32 個人用）
 //   動作不是預先做好的動畫，而是每格用「反向運動學（IK）」算出來：
 //     手 → 永遠貼在平台底面；腳 → 永遠踩在地上（地面高度固定）
 //     平台往這邊壓下來 → 自動蹲低、手肘彎；平台抬高 → 站直、手臂伸長
@@ -861,7 +861,7 @@ function ik2(a, b, c, target, pole, l1, l2) {
 }
 async function loadGiBearers() {
   try {
-    const gltf = await new GLTFLoader().loadAsync('assets/gi_bearer.glb');
+    const gltf = await new GLTFLoader().loadAsync('gi_bearer.glb');
     const src = gltf.scene;
     src.updateMatrixWorld(true);
     const B = giFindBones(src);
@@ -2065,10 +2065,10 @@ function animateFighter(f, dt) {
 
 // =====================================================================
 // 骨架人物（Mixamo）
-//   assets/character.fbx：人物本體（附帶 Body Block 動作）；idle / punch / hit：只有動作。
+//   character.fbx：人物本體（附帶 Body Block 動作）；idle / punch / hit：只有動作。
 //   載入完成前（或載入失敗時）沿用程式組成的方塊人。位移由遊戲物理控制，所以把動作的水平位移鎖住。
 // =====================================================================
-const CHAR_FILES = ['gi', 'character'];   // 角色模型檔（assets/ 裡），依序嘗試
+const CHAR_FILES = ['gi', 'character'];   // 角色模型檔（ 裡），依序嘗試
 const rigAssets = { ready: false, base: null, clips: {}, impact: {}, scale: 1, missing: [] };
 // 動作檔對照表。lockY：連上下位移也鎖住（跳躍、下墜、爬上來的高度由遊戲物理控制）
 const RIG_CLIPS = {
@@ -2242,7 +2242,7 @@ async function loadRig() {
     // 角色模型：先用道服角色（gi.fbx），讀不到才用 X Bot
     let base;
     for (const file of CHAR_FILES) {
-      try { base = await loader.loadAsync(`assets/${file}.fbx`); rigAssets.charFile = file; break; }
+      try { base = await loader.loadAsync(`${file}.fbx`); rigAssets.charFile = file; break; }
       catch (err) { console.warn(`角色 ${file}.fbx 載入失敗`, err); }
     }
     if (!base) throw new Error('沒有角色模型');
@@ -2251,7 +2251,7 @@ async function loadRig() {
     const clips = {};
     if (base.animations.length) { clips.block = lockRoot(longest(base)); clips.block.name = 'block'; }   // X Bot 檔附帶的 Body Block
     const names = Object.keys(RIG_CLIPS);
-    const res = await Promise.allSettled(names.map(n => loader.loadAsync(`assets/${RIG_CLIPS[n].file}.fbx`)));
+    const res = await Promise.allSettled(names.map(n => loader.loadAsync(`${RIG_CLIPS[n].file}.fbx`)));
     const raw = {};
     res.forEach((r, i) => {
       const n = names[i];
@@ -2276,7 +2276,7 @@ async function loadRig() {
     }
     // A 的重擊：使用 ActorCore 的 Push Punch R（Reallusion 骨架），轉到 Mixamo 骨架上
     try {
-      const src = await loader.loadAsync('assets/strong_src.fbx');
+      const src = await loader.loadAsync('strong_src.fbx');
       const c = lockRoot(retargetCC(src, longest(src), 'strong'));
       clips.strong = c; rigAssets.strongSource = 'Push Punch R';
     } catch (err) { console.warn('Push Punch R 轉換失敗，A 沿用 Uppercut：', err); rigAssets.strongSource = 'Uppercut'; }
