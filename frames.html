@@ -54,6 +54,8 @@
   .notes li { margin: 5px 0; }
   .notes b { color: var(--text); }
   .src { color: var(--dim); font-size: 12px; margin-top: 26px; }
+  .embed #play, .embed #lang { display: none; }
+  .embed .btns { min-width: 44px; }
 </style>
 </head>
 <body>
@@ -140,7 +142,7 @@ const T = {
       '<b>擊飛力道：</b>基礎力道 + 成長 × 對手量表。拉上面的滑桿，可以看到量表越高、飛得越遠、硬直越久。',
     ],
     findT: '這張表目前透露的事',
-    src: (live, file) => live ? `數值來源：直接讀取遊戲檔案 ${file}，改了遊戲數值這裡會自動更新。` : '數值來源：內建備份（讀不到遊戲檔案）。',
+    src: (live, file) => live ? `數值來源：直接讀取遊戲${file ? '檔案 ' + file : '目前的數值'}，改了遊戲數值這裡會自動更新。` : '數值來源：內建備份（讀不到遊戲檔案）。',
   },
   en: {
     title: 'Frame Data', sub: 'Speed, risk and reward of every move. 1 frame = 1/60 s.', play: 'Play', langBtn: '中文',
@@ -157,13 +159,20 @@ const T = {
       '<b>Knockback:</b> base + growth × opponent gauge. Drag the slider to see how a fuller gauge means more launch and longer hitstun.',
     ],
     findT: 'What the table shows right now',
-    src: (live, file) => live ? `Source: read live from the game file ${file}; changing the game's values updates this page.` : 'Source: built-in snapshot (game file could not be read).',
+    src: (live, file) => live ? `Source: read live from the game${file ? ' file ' + file : ''}; changing the game's values updates this page.` : 'Source: built-in snapshot (game file could not be read).',
   },
 };
 
 let MOVES = FALLBACK, live = false, srcFile = '';
 let LANG = 'zh';
 try { LANG = localStorage.getItem('sumo-lang') || ((navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en'); } catch (e) {}
+// 嵌在遊戲裡（frames.html?embed=1）：不顯示「進入遊戲」，數值直接拿遊戲正在用的 MOVES，Esc／T 關閉
+const QS = new URLSearchParams(location.search), EMBED = QS.has('embed') && parent !== window;
+if (QS.get('lang') === 'zh' || QS.get('lang') === 'en') LANG = QS.get('lang');
+if (EMBED) {
+  document.documentElement.classList.add('embed');
+  addEventListener('keydown', e => { if (e.code === 'Escape' || e.code === 'KeyT' || e.code === 'KeyP') parent.postMessage('sumo-frames-close', '*'); });
+}
 const fr = s => Math.round(s * FPS);
 const $ = id => document.getElementById(id);
 
@@ -243,6 +252,9 @@ $('lang').addEventListener('click', () => { LANG = LANG === 'zh' ? 'en' : 'zh'; 
 
 // 從遊戲檔案讀取最新的招式數值（開發版是 sumo.html，上線版是 index.html）
 (async () => {
+  if (EMBED) {
+    try { MOVES = parent.__sumo.MOVES; live = true; srcFile = ''; render(); return; } catch (e) {}
+  }
   for (const file of ['sumo.html', 'index.html']) {
     try {
       const res = await fetch(file, { cache: 'no-store' });

@@ -40,7 +40,14 @@
   #loading .bar i { display: block; height: 100%; width: 0; background: #d8261b; transition: width .3s; }
   #langBtn { position: fixed; left: 16px; bottom: 14px; z-index: 40; background: rgba(0,0,0,.55); color: #eee; border: 1px solid #444;
     border-radius: 6px; padding: 6px 12px; font-size: 12px; letter-spacing: .1em; cursor: pointer; }
-  #langBtn:hover { border-color: #d8261b; }
+  #langBtn:hover, #frameBtn:hover { border-color: #d8261b; }
+  #frameBtn { position: fixed; left: 16px; bottom: 50px; z-index: 40; background: rgba(0,0,0,.55); color: #eee; border: 1px solid #444;
+    border-radius: 4px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  #framesOv { position: fixed; inset: 0; z-index: 90; display: none; background: rgba(4,6,12,.82); padding: 3vh 3vw; }
+  #framesOv.on { display: block; }
+  #framesOv iframe { width: 100%; height: 100%; border: 1px solid #2a3348; border-radius: 10px; background: #070b14; }
+  #framesClose { position: absolute; top: calc(3vh + 12px); right: calc(3vw + 22px); z-index: 2; width: 36px; height: 36px; border-radius: 50%;
+    background: #d8261b; color: #fff; border: 0; font-size: 18px; cursor: pointer; }
   #fps { position: fixed; right: 16px; bottom: 12px; font: 12px/1.4 ui-monospace, monospace; opacity: .7; text-align: right; pointer-events: none; }
   #msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     font-size: 64px; font-weight: 800; letter-spacing: .1em; pointer-events: none; opacity: 0;
@@ -105,6 +112,8 @@
 <div id="msg"></div>
 <div id="fps"></div>
 <button id="langBtn" title="Language / 語言 (L)">EN</button>
+<button id="frameBtn" title="T" data-i18n="frameBtn"></button>
+<div id="framesOv"><button id="framesClose" title="Esc">✕</button><iframe id="framesFrame" title="Frame Data"></iframe></div>
 <div id="loading"><div class="t">SUMO</div><div class="bar"><i></i></div><div class="s" data-i18n="loading">載入中…</div></div>
 <div id="camRail" title="鏡頭高度：拖動、滾輪或按住 ▲▼（Q / E）">
   <div class="cap">鏡頭高度</div>
@@ -132,19 +141,19 @@ const I18N = {
     you: '你', cpu: 'CPU', loading: '載入中…', paused: '暫停', resume: '按 P 或 Esc 繼續',
     hint: '方向鍵 移動（快按兩下 + D = 突進）　·　W 跳躍（空中再按 = 上升技）　·　D 攻擊（連按連段／空中迴旋踢）<br>' +
           'A 重擊（按住蓄力，可用方向鍵轉向；空中為下墜重擊）　·　S 翻滾　·　空白鍵 嘲諷（按住繼續跳）<br>' +
-          '抓邊後自動攀爬，期間可先按 W／D／S 決定上來方式　|　P 暫停　·　R 重新開始　·　L English',
+          '抓邊後自動攀爬，期間可先按 W／D／S 決定上來方式　|　P 暫停　·　R 重新開始　·　T 幀數表　·　L English',
     roundWin: w => `${w === 'you' ? '你' : 'CPU'} 拿下這局`,
     matchWin: (w, a, b) => `${w === 'you' ? '你贏了' : 'CPU 獲勝'}　${a} － ${b}\n按 R 再來一場`,
-    worst: '最慢', langBtn: 'EN',
+    worst: '最慢', langBtn: 'EN', frameBtn: '幀數表',
   },
   en: {
     you: 'YOU', cpu: 'CPU', loading: 'Loading…', paused: 'PAUSED', resume: 'Press P or Esc to resume',
     hint: 'Arrows Move (double-tap + D = Dash)　·　W Jump (again in air = Rising Special)　·　D Attack (combo / air Spin Kick)<br>' +
           'A Heavy (hold to charge, steer with arrows; in air = Slam)　·　S Roll　·　Space Taunt (hold to keep dancing)<br>' +
-          'On the ledge you climb up automatically — press W / D / S early to choose how　|　P Pause　·　R Restart　·　L 中文',
+          'On the ledge you climb up automatically — press W / D / S early to choose how　|　P Pause　·　R Restart　·　T Frame Data　·　L 中文',
     roundWin: w => `${w === 'you' ? 'YOU TAKE' : 'CPU TAKES'} THE ROUND`,
     matchWin: (w, a, b) => `${w === 'you' ? 'YOU WIN' : 'CPU WINS'}　${a} – ${b}\nPress R for a rematch`,
-    worst: 'worst', langBtn: '中文',
+    worst: 'worst', langBtn: '中文', frameBtn: 'Frame Data',
   },
 };
 let LANG = (() => {
@@ -1195,7 +1204,8 @@ addEventListener('keydown', e => {
     if (e.code === 'KeyH') { const pn = document.getElementById('panel'); pn.classList.toggle('hidden'); pn.classList.toggle('open', !pn.classList.contains('hidden')); }
     if (e.code === 'KeyL') toggleLang();
     if (e.code === 'KeyF') fpsEl.style.display = fpsEl.style.display === 'none' ? '' : 'none';
-    if (e.code === 'KeyP' || e.code === 'Escape') setPaused(!paused);
+    if (e.code === 'KeyT') toggleFrames();
+    if (e.code === 'KeyP' || e.code === 'Escape') { if (framesOpen()) toggleFrames(false); else setPaused(!paused); }
   }
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -2587,6 +2597,20 @@ function setPaused(v) {
   msgEl.style.visibility = v ? 'hidden' : '';
   human.buf = {};
 }
+// 幀數表：遊戲內的面板（T 鍵或左下角按鈕）。打開時暫停；內容是 frames.html，直接讀這裡的 MOVES
+const framesOv = document.getElementById('framesOv'), framesFrame = document.getElementById('framesFrame');
+const framesOpen = () => framesOv.classList.contains('on');
+let framesWasPaused = false;
+function toggleFrames(v = !framesOpen()) {
+  if (v === framesOpen()) return;
+  framesOv.classList.toggle('on', v);
+  if (v) { framesWasPaused = paused; setPaused(true); framesFrame.src = 'frames.html?embed=1&lang=' + LANG; }
+  else { if (!framesWasPaused) setPaused(false); window.focus(); }
+}
+document.getElementById('frameBtn').addEventListener('click', e => { e.currentTarget.blur(); toggleFrames(); });
+document.getElementById('framesClose').addEventListener('click', () => toggleFrames(false));
+framesOv.addEventListener('click', e => { if (e.target === framesOv) toggleFrames(false); });
+addEventListener('message', e => { if (e.source === framesFrame.contentWindow && e.data === 'sumo-frames-close') toggleFrames(false); });
 const camHold = { elev: 0, dist: 0 };
 function cameraKeys(dt) {
   const elev = (keys.has('KeyE') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0) + camHold.elev;
