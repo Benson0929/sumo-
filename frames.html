@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO 幀數表</title>
+<style>
+  :root {
+    --bg: #070b14; --panel: #0f1522; --line: #1f2838; --text: #e9edf5; --dim: #8a94a8;
+    --red: #e23a3a; --su: #e8b34a; --ac: #e23a3a; --re: #4a78c8; --plus: #5fd08a; --minus: #ff7a7a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 60px; }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 2px solid var(--red); padding-bottom: 14px; }
+  h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: .06em; }
+  h1 span { color: var(--red); }
+  .sub { color: var(--dim); font-size: 13px; margin-top: 2px; }
+  .btns { display: flex; gap: 8px; }
+  button, a.btn { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
+  button:hover, a.btn:hover { border-color: var(--red); }
+  .ctrl { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 18px 0 10px; }
+  .ctrl label { font-weight: 600; }
+  .ctrl input[type=range] { flex: 1 1 220px; accent-color: var(--red); }
+  .cells { display: flex; gap: 3px; }
+  .cells i { width: 14px; height: 14px; border-radius: 2px; background: #232c3d; }
+  .cells i.on { background: var(--red); }
+  .ctrl .val { min-width: 90px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--dim); font-size: 12.5px; margin: 0 2px 10px; }
+  .legend b { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 10px 12px; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { background: var(--panel); font-size: 12.5px; color: var(--dim); font-weight: 600; position: sticky; top: 0; }
+  th small { display: block; font-weight: 400; opacity: .75; }
+  tr:last-child td { border-bottom: 0; }
+  td.name { text-align: left; }
+  td.name .n { font-size: 16px; font-weight: 700; }
+  td.name .k { color: var(--dim); font-size: 12.5px; }
+  .tag { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 3px; border: 1px solid #3a4560; color: #b9c4dc; margin-left: 6px; vertical-align: 2px; }
+  td.num { font-size: 18px; font-weight: 700; }
+  td.num small { font-size: 12px; font-weight: 400; color: var(--dim); }
+  .bar { display: flex; height: 16px; border-radius: 3px; overflow: hidden; background: #161d2b; }
+  .bar i { display: block; height: 100%; }
+  .bar .su { background: var(--su); } .bar .ac { background: var(--ac); } .bar .re { background: var(--re); }
+  .bar .wh { background: repeating-linear-gradient(135deg, var(--re) 0 3px, #24385f 3px 6px); }
+  .bar .ch { background: repeating-linear-gradient(135deg, var(--su) 0 3px, #6a5220 3px 6px); }
+  td.bars { text-align: left; min-width: 250px; }
+  .adv { font-size: 19px; font-weight: 800; }
+  .adv.p { color: var(--plus); } .adv.m { color: var(--minus); }
+  .adv small { display: block; font-size: 11.5px; font-weight: 400; color: var(--dim); }
+  h2 { font-size: 18px; margin: 34px 0 8px; }
+  .notes { color: #c5cddc; }
+  .notes li { margin: 5px 0; }
+  .notes b { color: var(--text); }
+  .src { color: var(--dim); font-size: 12px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span>SUMO</span> <span style="color:inherit" data-t="title"></span></h1>
+      <div class="sub" data-t="sub"></div>
+    </div>
+    <div class="btns">
+      <a class="btn" id="play" data-t="play"></a>
+      <button id="lang"></button>
+    </div>
+  </header>
+
+  <div class="ctrl">
+    <label for="pct" data-t="gauge"></label>
+    <input type="range" id="pct" min="0" max="10" step="1" value="0">
+    <div class="cells" id="cells"></div>
+    <div class="val" id="pctVal"></div>
+  </div>
+  <div class="legend">
+    <span><b style="background:var(--su)"></b><span data-t="lgSu"></span></span>
+    <span><b style="background:var(--ac)"></b><span data-t="lgAc"></span></span>
+    <span><b style="background:var(--re)"></b><span data-t="lgRe"></span></span>
+    <span><b style="background:repeating-linear-gradient(135deg,var(--re) 0 3px,#24385f 3px 6px)"></b><span data-t="lgWh"></span></span>
+    <span><b style="background:repeating-linear-gradient(135deg,var(--su) 0 3px,#6a5220 3px 6px)"></b><span data-t="lgCh"></span></span>
+  </div>
+
+  <div class="scroll"><table>
+    <thead><tr id="head"></tr></thead>
+    <tbody id="rows"></tbody>
+  </table></div>
+
+  <h2 data-t="howT"></h2>
+  <ul class="notes" id="how"></ul>
+  <h2 data-t="findT"></h2>
+  <ul class="notes" id="find"></ul>
+  <div class="src" id="src"></div>
+</div>
+
+<script>
+// 遊戲數值的備份（讀不到遊戲檔案時使用）。正常情況會直接從遊戲檔案讀取最新的 MOVES。
+const FALLBACK = {
+  jab1:   { startup: .06, active: .07, recovery: .15, whiff: .25, hs: .10, dmg: 4, bkb: 2.2, kbg: .010, angle: 15, reach: 1.45 },
+  jab2:   { startup: .12, active: .07, recovery: .15, whiff: .25, hs: .10, dmg: 4, bkb: 2.2, kbg: .010, angle: 15, reach: 1.45 },
+  jab3:   { startup: .16, active: .09, recovery: .28, whiff: .40, dmg: 7, bkb: 5.5, kbg: .03, angle: 35, reach: 1.6 },
+  dash:   { startup: .08, active: .16, recovery: .32, whiff: .45, dmg: 6, bkb: 7.5, kbg: .03, angle: 28, reach: 1.35 },
+  strong: { startup: .16, active: .10, recovery: .30, whiff: .40, dmg: 11, dmgMax: 17, bkb: 4.5, kbg: .13, kbgMax: .16, angle: 38, reach: 1.2, chargeMax: 1.0 },
+  air:    { startup: .07, active: .22, recovery: .16, dmg: 7, bkb: 5, kbg: .05, angle: 38, reach: 1.35 },
+  slam:   { startup: .20, active: 9, recovery: .36, dmg: 12, bkb: 7.5, kbg: .09, angle: 65, reach: 1.3 },
+  getupAtk: { startup: .03, active: .12, recovery: .30, dmg: 7, bkb: 8.5, kbg: .03, angle: 32, reach: 1.8 },
+  upSpec: { startup: .05, active: .32, recovery: .12, dmg: 6, bkb: 6, kbg: .05, angle: 72, reach: 1.2 },
+};
+const FPS = 60, GAUGE_STEP = 15;
+
+// 表格裡的每一列：id = 遊戲裡的招式；full = 蓄滿版本
+const ROWS = [
+  { id: 'jab1',   zh: ['輕拳・一段', 'D'],                    en: ['Jab 1', 'D'] },
+  { id: 'jab2',   zh: ['輕拳・二段', 'D › D'],                en: ['Jab 2', 'D › D'] },
+  { id: 'jab3',   zh: ['輕拳・三段', 'D › D › D'],            en: ['Jab 3', 'D › D › D'] },
+  { id: 'dash',   zh: ['突進', '方向鍵快按兩下 + D'],          en: ['Dash', 'Double-tap arrow + D'] },
+  { id: 'strong', zh: ['重擊', 'A'],                          en: ['Heavy', 'A'] },
+  { id: 'strong', full: true, zh: ['重擊（蓄滿）', '按住 A'],  en: ['Heavy (full charge)', 'Hold A'], tag: { zh: '蓄力過半有霸體', en: 'Armor past half charge' } },
+  { id: 'air',    zh: ['空中迴旋踢', '空中 D'],                en: ['Air Spin Kick', 'D in air'] },
+  { id: 'slam',   zh: ['下墜重擊', '空中 A'],                  en: ['Slam', 'A in air'] },
+  { id: 'upSpec', zh: ['上升技', '空中 W'],                    en: ['Rising Special', 'W in air'] },
+  { id: 'getupAtk', zh: ['爬起攻擊', '掛邊時 D'],              en: ['Ledge Attack', 'D on ledge'] },
+];
+
+const T = {
+  zh: {
+    title: '幀數表', sub: '每一招的快慢、破綻與回報。1 幀 = 1/60 秒。', play: '進入遊戲', langBtn: 'EN',
+    gauge: '對手的量表', cellsUnit: n => `${n} 格（${n * GAUGE_STEP}）`,
+    lgSu: '發生', lgAc: '持續（打得到人）', lgRe: '收招', lgWh: '打空時多出的收招', lgCh: '蓄力（最多）',
+    head: [['招式', '按鍵'], ['發生', '幀'], ['持續', '幀'], ['收招', '命中／打空'], ['幀條', ''], ['命中優勢', '幀'], ['傷害', ''], ['擊飛力道', '目前量表'], ['角度', ''], ['距離', '']],
+    toLand: '到落地', hitstun: n => `對手硬直 ${n}`, approx: '約',
+    howT: '怎麼看這張表',
+    how: [
+      '<b>發生：</b>按下按鍵到打得到人之前的幀數。數字越小，出手越快。',
+      '<b>持續：</b>攻擊判定存在的幀數。越長越容易打中。',
+      '<b>收招：</b>判定結束到能再行動的幀數。打空時收招更久，破綻更大。',
+      '<b>命中優勢：</b>打中之後，對手恢復行動的時間減去自己恢復行動的時間。正數代表你先能動；負數代表對手先能動。以判定第一幀打中來計算。',
+      '<b>擊飛力道：</b>基礎力道 + 成長 × 對手量表。拉上面的滑桿，可以看到量表越高、飛得越遠、硬直越久。',
+    ],
+    findT: '這張表目前透露的事',
+    src: (live, file) => live ? `數值來源：直接讀取遊戲檔案 ${file}，改了遊戲數值這裡會自動更新。` : '數值來源：內建備份（讀不到遊戲檔案）。',
+  },
+  en: {
+    title: 'Frame Data', sub: 'Speed, risk and reward of every move. 1 frame = 1/60 s.', play: 'Play', langBtn: '中文',
+    gauge: 'Opponent gauge', cellsUnit: n => `${n} cell${n === 1 ? '' : 's'} (${n * GAUGE_STEP})`,
+    lgSu: 'Start-up', lgAc: 'Active (can hit)', lgRe: 'Recovery', lgWh: 'Extra recovery on whiff', lgCh: 'Charge (max)',
+    head: [['Move', 'Input'], ['Start-up', 'frames'], ['Active', 'frames'], ['Recovery', 'hit / whiff'], ['Frame bar', ''], ['On hit', 'frames'], ['Damage', ''], ['Knockback', 'at this gauge'], ['Angle', ''], ['Reach', '']],
+    toLand: 'until landing', hitstun: n => `hitstun ${n}`, approx: '~',
+    howT: 'How to read this table',
+    how: [
+      '<b>Start-up:</b> frames between the button press and the first frame that can hit. Lower is faster.',
+      '<b>Active:</b> frames the attack can hit. Longer is easier to land.',
+      '<b>Recovery:</b> frames after the hit window until you can act again. A whiffed move recovers more slowly.',
+      '<b>On hit:</b> the opponent\'s time to act again minus yours. Positive means you move first; negative means they do. Calculated for a hit on the first active frame.',
+      '<b>Knockback:</b> base + growth × opponent gauge. Drag the slider to see how a fuller gauge means more launch and longer hitstun.',
+    ],
+    findT: 'What the table shows right now',
+    src: (live, file) => live ? `Source: read live from the game file ${file}; changing the game's values updates this page.` : 'Source: built-in snapshot (game file could not be read).',
+  },
+};
+
+let MOVES = FALLBACK, live = false, srcFile = '';
+let LANG = 'zh';
+try { LANG = localStorage.getItem('sumo-lang') || ((navigator.language || 'zh').toLowerCase().startsWith('zh') ? 'zh' : 'en'); } catch (e) {}
+const fr = s => Math.round(s * FPS);
+const $ = id => document.getElementById(id);
+
+function calc(row, pct) {
+  const d = MOVES[row.id], c = row.full ? 1 : 0;
+  const dmg = d.dmgMax ? d.dmg + (d.dmgMax - d.dmg) * c : d.dmg;
+  const kbg = d.kbgMax ? d.kbg + (d.kbgMax - d.kbg) * c : d.kbg;
+  const kb = d.bkb + kbg * (pct + dmg);                         // 遊戲裡先加傷害再算擊飛
+  const stun = fr(d.hs ?? Math.min(1.6, 0.1 + kb * 0.035));
+  const toLand = row.id === 'slam';
+  const su = fr(d.startup), ac = toLand ? 0 : fr(d.active), re = fr(d.recovery), wh = d.whiff ? fr(d.whiff) : re;
+  const ch = row.full ? fr(d.chargeMax) : 0;
+  return { d, dmg, kb, stun, su, ac, re, wh, ch, toLand, adv: stun - (ac + re) };
+}
+
+function render() {
+  const t = T[LANG], cellsN = +$('pct').value, pct = cellsN * GAUGE_STEP;
+  document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
+  document.title = 'SUMO ' + t.title;
+  document.querySelectorAll('[data-t]').forEach(e => { e.textContent = t[e.dataset.t]; });
+  $('lang').textContent = t.langBtn;
+  $('pctVal').textContent = t.cellsUnit(cellsN);
+  $('cells').innerHTML = Array.from({ length: 10 }, (_, i) => `<i class="${i < cellsN ? 'on' : ''}"></i>`).join('');
+  $('head').innerHTML = t.head.map(([a, b]) => `<th>${a}${b ? `<small>${b}</small>` : ''}</th>`).join('');
+
+  const PX = 2.6;
+  $('rows').innerHTML = ROWS.filter(r => MOVES[r.id]).map(r => {
+    const m = calc(r, pct), [name, key] = r[LANG];
+    const tag = r.tag ? `<span class="tag">${r.tag[LANG]}</span>` : '';
+    const seg = (cls, n) => n > 0 ? `<i class="${cls}" style="width:${n * PX}px" title="${n}"></i>` : '';
+    const bar = `<div class="bar" style="width:${(m.su + m.ch + (m.toLand ? 14 : m.ac) + m.wh) * PX}px">` +
+      seg('su', m.su) + seg('ch', m.ch) + seg('ac', m.toLand ? 14 : m.ac) + seg('re', m.re) + seg('wh', m.wh - m.re) + '</div>';
+    const sign = m.adv > 0 ? '+' : '';
+    return `<tr>
+      <td class="name"><div class="n">${name}${tag}</div><div class="k">${key}</div></td>
+      <td class="num">${m.su}${m.ch ? `<small> + ${m.ch}</small>` : ''}</td>
+      <td class="num">${m.toLand ? `<small>${t.toLand}</small>` : m.ac}</td>
+      <td class="num">${m.re}${m.wh !== m.re ? `<small> ／ ${m.wh}</small>` : ''}</td>
+      <td class="bars">${bar}</td>
+      <td><div class="adv ${m.adv > 0 ? 'p' : m.adv < 0 ? 'm' : ''}">${m.toLand ? t.approx + ' ' : ''}${sign}${m.adv}<small>${t.hitstun(m.stun)}</small></div></td>
+      <td class="num">${Math.round(m.dmg * 10) / 10}</td>
+      <td class="num">${m.kb.toFixed(1)}</td>
+      <td>${m.d.angle}°</td>
+      <td>${m.d.reach}</td>
+    </tr>`;
+  }).join('');
+
+  $('how').innerHTML = t.how.map(s => `<li>${s}</li>`).join('');
+  $('find').innerHTML = findings(pct).map(s => `<li>${s}</li>`).join('');
+  $('src').textContent = t.src(live, srcFile);
+}
+
+// 從目前數值自動算出的觀察
+function findings(pct) {
+  const g = id => calc(ROWS.find(r => r.id === id && !r.full), pct), out = [];
+  const j1 = g('jab1'), j2 = g('jab2'), st = g('strong'), da = g('dash');
+  const gap = j1.ac + j1.re + j2.su - j1.stun;
+  const fastest = ROWS.filter(r => MOVES[r.id] && !r.full).map(r => [r, calc(r, pct)]).sort((a, b) => a[1].su - b[1].su)[0];
+  if (LANG === 'zh') {
+    out.push(`<b>輕拳連段不是「必中連段」：</b>第一段打中後對手硬直 ${j1.stun} 幀，但第二段要 ${j1.ac + j1.re + j2.su} 幀後才打得到，中間有 ${gap} 幀的空檔，對手可以翻滾逃開。這是目前刻意的設計；如果想要按到底就全中，需要拉長硬直或縮短收招。`);
+    out.push(`<b>風險與回報：</b>重擊發生 ${st.su} 幀、打空要 ${st.ac + st.wh} 幀才能再動，是輕拳一段（${j1.ac + j1.wh} 幀）的 ${((st.ac + st.wh) / (j1.ac + j1.wh)).toFixed(1)} 倍；換來的是高量表時的擊飛力道（目前 ${st.kb.toFixed(1)}，輕拳一段只有 ${j1.kb.toFixed(1)}）。`);
+    out.push(`<b>最快的招式：</b>${fastest[0].zh[0]}，發生 ${fastest[1].su} 幀。突進發生 ${da.su} 幀，但打空的破綻有 ${da.ac + da.wh} 幀。`);
+    out.push('<b>沒有「被防」欄：</b>防禦和抓技目前在遊戲裡是停用的，所以沒有被防優勢。加回防禦之後，這張表會多一欄。');
+    out.push('<b>命中優勢是名目值：</b>SUMO 是把人打飛的遊戲，對手被打中會飛出去，所以正優勢不一定追得上；它主要用來比較各招的回報。');
+  } else {
+    out.push(`<b>The jab chain is not a true combo:</b> Jab 1 gives ${j1.stun} frames of hitstun, but Jab 2 connects ${j1.ac + j1.re + j2.su} frames later, leaving a ${gap}-frame gap the opponent can roll out of. This is intentional for now; a guaranteed chain would need more hitstun or less recovery.`);
+    out.push(`<b>Risk and reward:</b> Heavy starts in ${st.su} frames and a whiff costs ${st.ac + st.wh} frames, ${((st.ac + st.wh) / (j1.ac + j1.wh)).toFixed(1)}× Jab 1 (${j1.ac + j1.wh}); in return it launches far harder at high gauge (${st.kb.toFixed(1)} now, versus ${j1.kb.toFixed(1)} for Jab 1).`);
+    out.push(`<b>Fastest move:</b> ${fastest[0].en[0]}, ${fastest[1].su} frames of start-up. Dash starts in ${da.su} frames but a whiff leaves you open for ${da.ac + da.wh}.`);
+    out.push('<b>No "on block" column:</b> shielding and grabs are currently disabled in the game. The column will be added when defence returns.');
+    out.push('<b>On-hit numbers are nominal:</b> SUMO launches the opponent away, so a positive number is not always a follow-up; use it to compare the reward of each move.');
+  }
+  return out;
+}
+
+$('pct').addEventListener('input', render);
+$('lang').addEventListener('click', () => { LANG = LANG === 'zh' ? 'en' : 'zh'; try { localStorage.setItem('sumo-lang', LANG); } catch (e) {} render(); });
+
+// 從遊戲檔案讀取最新的招式數值（開發版是 sumo.html，上線版是 index.html）
+(async () => {
+  for (const file of ['sumo.html', 'index.html']) {
+    try {
+      const res = await fetch(file, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const m = (await res.text()).match(/const MOVES = (\{[\s\S]*?\n\});/);
+      if (!m) continue;
+      MOVES = new Function('return ' + m[1])();
+      live = true; srcFile = file; $('play').href = file;
+      break;
+    } catch (e) {}
+  }
+  if (!live) $('play').href = 'index.html';
+  render();
+})();
+render();
+</script>
+</body>
+</html>
