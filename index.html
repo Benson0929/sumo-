@@ -38,6 +38,9 @@
   #loading .s { font-size: 13px; opacity: .7; }
   #loading .bar { width: 220px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; }
   #loading .bar i { display: block; height: 100%; width: 0; background: #d8261b; transition: width .3s; }
+  #langBtn { position: fixed; left: 16px; bottom: 14px; z-index: 40; background: rgba(0,0,0,.55); color: #eee; border: 1px solid #444;
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; letter-spacing: .1em; cursor: pointer; }
+  #langBtn:hover { border-color: #d8261b; }
   #fps { position: fixed; right: 16px; bottom: 12px; font: 12px/1.4 ui-monospace, monospace; opacity: .7; text-align: right; pointer-events: none; }
   #msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
     font-size: 64px; font-weight: 800; letter-spacing: .1em; pointer-events: none; opacity: 0;
@@ -85,7 +88,7 @@
 <div id="timer">0 － 0</div>
 <div id="hud">
   <div class="card" id="card0">
-    <div class="name"><i style="background:#e8a07a"></i>你</div>
+    <div class="name"><i style="background:#e8a07a"></i><span data-i18n="you">你</span></div>
     <div class="gauge"></div>
     <div class="wins"></div>
   </div>
@@ -95,17 +98,14 @@
     <div class="wins"></div>
   </div>
 </div>
-<div id="hint">
-  方向鍵 移動（快按兩下 + D = 突進）　·　W 跳躍（空中再按 = 上升技）　·　D 攻擊（連按連段／空中迴旋踢）<br>
-  A 重擊（按住蓄力，可用方向鍵轉向；空中為下墜重擊）　·　S 翻滾　·　空白鍵 嘲諷（按住繼續跳）<br>
-  抓邊後自動攀爬，期間可先按 W／D／S 決定上來方式　|　P 暫停　·　R 重新開始　·　H 面板
-</div>
+<div id="hint" data-i18n="hint"></div>
 <div id="grade"></div>
 <div id="vig"></div>
 <div id="flash"></div>
 <div id="msg"></div>
 <div id="fps"></div>
-<div id="loading"><div class="t">SUMO</div><div class="bar"><i></i></div><div class="s">載入中…</div></div>
+<button id="langBtn" title="Language / 語言 (L)">EN</button>
+<div id="loading"><div class="t">SUMO</div><div class="bar"><i></i></div><div class="s" data-i18n="loading">載入中…</div></div>
 <div id="camRail" title="鏡頭高度：拖動、滾輪或按住 ▲▼（Q / E）">
   <div class="cap">鏡頭高度</div>
   <button data-d="1">▲</button>
@@ -114,8 +114,8 @@
   <div class="val" id="camYVal"></div>
 </div>
 <div id="pause">
-  <div class="title">暫停</div>
-  <div class="sub">按 P 或 Esc 繼續</div>
+  <div class="title" data-i18n="paused">暫停</div>
+  <div class="sub" data-i18n="resume">按 P 或 Esc 繼續</div>
 </div>
 <div id="panel" class="hidden">
   <h3>調整 <button id="resetParams">預設值</button></h3>
@@ -124,6 +124,46 @@
 
 <script type="module">
 import * as THREE from 'three';
+// =====================================================================
+// 中英文切換：畫面上給玩家看的文字都在這裡（調整面板是開發用的，維持中文）
+// =====================================================================
+const I18N = {
+  zh: {
+    you: '你', cpu: 'CPU', loading: '載入中…', paused: '暫停', resume: '按 P 或 Esc 繼續',
+    hint: '方向鍵 移動（快按兩下 + D = 突進）　·　W 跳躍（空中再按 = 上升技）　·　D 攻擊（連按連段／空中迴旋踢）<br>' +
+          'A 重擊（按住蓄力，可用方向鍵轉向；空中為下墜重擊）　·　S 翻滾　·　空白鍵 嘲諷（按住繼續跳）<br>' +
+          '抓邊後自動攀爬，期間可先按 W／D／S 決定上來方式　|　P 暫停　·　R 重新開始　·　L English',
+    roundWin: w => `${w === 'you' ? '你' : 'CPU'} 拿下這局`,
+    matchWin: (w, a, b) => `${w === 'you' ? '你贏了' : 'CPU 獲勝'}　${a} － ${b}\n按 R 再來一場`,
+    worst: '最慢', langBtn: 'EN',
+  },
+  en: {
+    you: 'YOU', cpu: 'CPU', loading: 'Loading…', paused: 'PAUSED', resume: 'Press P or Esc to resume',
+    hint: 'Arrows Move (double-tap + D = Dash)　·　W Jump (again in air = Rising Special)　·　D Attack (combo / air Spin Kick)<br>' +
+          'A Heavy (hold to charge, steer with arrows; in air = Slam)　·　S Roll　·　Space Taunt (hold to keep dancing)<br>' +
+          'On the ledge you climb up automatically — press W / D / S early to choose how　|　P Pause　·　R Restart　·　L 中文',
+    roundWin: w => `${w === 'you' ? 'YOU TAKE' : 'CPU TAKES'} THE ROUND`,
+    matchWin: (w, a, b) => `${w === 'you' ? 'YOU WIN' : 'CPU WINS'}　${a} – ${b}\nPress R for a rematch`,
+    worst: 'worst', langBtn: '中文',
+  },
+};
+let LANG = (() => {
+  try { const v = localStorage.getItem('sumo-lang'); if (v === 'zh' || v === 'en') return v; } catch (e) {}
+  return /^zh/i.test(navigator.language || '') ? 'zh' : 'en';      // 第一次開：跟著瀏覽器語言
+})();
+const tr = k => I18N[LANG][k];
+function applyLang() {
+  document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = tr(el.dataset.i18n); });
+  document.getElementById('langBtn').textContent = tr('langBtn');
+}
+function toggleLang() {
+  LANG = LANG === 'zh' ? 'en' : 'zh';
+  try { localStorage.setItem('sumo-lang', LANG); } catch (e) {}
+  applyLang();
+}
+document.getElementById('langBtn').addEventListener('click', e => { toggleLang(); e.currentTarget.blur(); });
+applyLang();
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -1153,6 +1193,7 @@ addEventListener('keydown', e => {
     else if (KEYMAP[e.code]) human.press(KEYMAP[e.code], KEYMAP[e.code] === 'roll' ? 0.3 : 0.15);   // 翻滾的輸入多保留一下，被打中時提早按也有效
     if (e.code === 'KeyR') startMatch();
     if (e.code === 'KeyH') { const pn = document.getElementById('panel'); pn.classList.toggle('hidden'); pn.classList.toggle('open', !pn.classList.contains('hidden')); }
+    if (e.code === 'KeyL') toggleLang();
     if (e.code === 'KeyF') fpsEl.style.display = fpsEl.style.display === 'none' ? '' : 'none';
     if (e.code === 'KeyP' || e.code === 'Escape') setPaused(!paused);
   }
@@ -1873,7 +1914,7 @@ function updateGame(dt) {
   } else if (game.state === 'roundEnd') {
     game.t += dt;
     const w = game.roundWinner;
-    showMsg(`${w === player ? '你' : 'CPU'} 拿下這局`);
+    showMsg(tr('roundWin')(w === player ? 'you' : 'cpu'));
     if (game.t > 2.2) {
       if (w.wins >= P.roundsToWin) endMatch(w);
       else startRound();
@@ -1881,7 +1922,7 @@ function updateGame(dt) {
   } else if (game.state === 'over') {
     game.t += dt;
     const w = game.winner;
-    showMsg(`${w === player ? '你贏了' : 'CPU 獲勝'}　${player.wins} － ${cpu.wins}\n按 R 再來一場`);
+    showMsg(tr('matchWin')(w === player ? 'you' : 'cpu', player.wins, cpu.wins));
   }
 }
 
@@ -2668,7 +2709,7 @@ function updateFps(now) {
   const ms = now - fpsStat.last; fpsStat.last = now;
   fpsStat.n++; fpsStat.t += ms; fpsStat.worst = Math.max(fpsStat.worst, ms);
   if (fpsStat.t >= 500) {
-    fpsEl.textContent = `${Math.round(fpsStat.n * 1000 / fpsStat.t)} FPS　最慢 ${fpsStat.worst.toFixed(0)} ms`;
+    fpsEl.textContent = `${Math.round(fpsStat.n * 1000 / fpsStat.t)} FPS　${tr('worst')} ${fpsStat.worst.toFixed(0)} ms`;
     fpsStat.n = 0; fpsStat.t = 0; fpsStat.worst = 0;
   }
 }
