@@ -67,6 +67,13 @@
   #tut.done .tok { visibility: visible; }
   #tutSkip { background: none; color: #bbb; border: 1px solid #555; border-radius: 5px; padding: 3px 9px; font: inherit; font-size: 11px; cursor: pointer; }
   #tutSkip:hover { color: #fff; border-color: #d8261b; }
+  /* 平台預覽模式（網址加 ?view=platform）：只留平台，其他介面都收起來 */
+  body.viewonly #hud, body.viewonly #timer, body.viewonly #hint, body.viewonly #camRail, body.viewonly #tutBtn, body.viewonly #frameBtn,
+  body.viewonly #langBtn, body.viewonly #msg, body.viewonly #vig, body.viewonly #tut, body.viewonly #fps { display: none !important; }
+  #viewHelp { display: none; position: fixed; left: 16px; top: 12px; z-index: 40; font-size: 12px; line-height: 1.8; opacity: .8; }
+  body.viewonly #viewHelp { display: block; }
+  #viewHelp a, #viewBtn { color: #eee; background: rgba(0,0,0,.55); border: 1px solid #444; border-radius: 4px; padding: 3px 9px; font: inherit; font-size: 11px; text-decoration: none; cursor: pointer; }
+  #viewHelp a:hover, #viewBtn:hover { border-color: #d8261b; }
   #framesOv { position: fixed; inset: 0; z-index: 90; display: none; background: rgba(4,6,12,.82); padding: 3vh 3vw; }
   #framesOv.on { display: block; }
   #framesOv iframe { width: 100%; height: 100%; border: 1px solid #2a3348; border-radius: 10px; background: #070b14; }
@@ -138,6 +145,7 @@
 <div id="vig"></div>
 <div id="flash"></div>
 <div id="msg"></div>
+<div id="viewHelp"><b>平台預覽</b><br>左鍵拖曳：旋轉　·　滾輪：縮放　·　右鍵拖曳：平移<br>H：開關調整面板　　<a id="viewBack" href="#">回到遊戲</a></div>
 <div id="fps"></div>
 <button id="langBtn" title="Language / 語言">EN</button>
 <button id="frameBtn" title="T" data-i18n="frameBtn"></button>
@@ -164,7 +172,7 @@
   <div class="sub" data-i18n="resume">按 P 或 Esc 繼續</div>
 </div>
 <div id="panel" class="hidden">
-  <h3>調整 <button id="resetParams">預設值</button></h3>
+  <h3>調整 <span><button id="viewBtn">平台預覽</button> <button id="resetParams">預設值</button></span></h3>
   <div class="body"><h4 data-i18n="keysTitle"></h4><div id="keysHelp" data-i18n="hintKeys"></div><div id="sliders"></div></div>
 </div>
 
@@ -251,6 +259,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // =====================================================================
 // 可調參數
@@ -261,12 +270,12 @@ const DEFAULTS = {
   bearPerEdge: 8, cornerHit: 60, collapseTime: 5, protectTime: 4, collapseAngle: 0.2, collapsePull: 12,
   kbScale: 1, dmgScale: 1, hitstunScale: 1, blastDist: 22, ledgeWait: 3, ledgeSlow: 0.5, roundsToWin: 2,
   cpuLevel: 1,
-  platW: 13.1, platD: 7.8, thick: 0.35,
+  platW: 13.1, platD: 7.8, thick: 0.35, heriH: 0.03, tatamiWear: 0.14, tatamiMess: 0.6, matWave: 0.05, matDamage: 0.4,
   brightness: 1.75, camY: 18.5, camDist: 27, camZoomMin: 0.38, animAmp: 1.35, resScale: 1.6, bloom: 0.28, autoRes: 1,
 };
 const CAM_Y_MIN = 1, CAM_Y_MAX = 60;
 const GROUPS = [
-  ['畫面', { resScale: ['畫面解析度（越低越順）', 0.6, 2, 0.05], autoRes: ['卡頓時自動降低解析度（1 = 開）', 0, 1, 1], brightness: ['亮度', 0.2, 2.5, 0.05], bloom: ['泛光強度（0 = 關閉，較順）', 0, 1.5, 0.05], camDist: ['鏡頭水平距離 Z / X', 8, 50, 0.5],
+  ['畫面', { resScale: ['畫面解析度（越低越順；超過 2 非常吃效能）', 0.6, 3, 0.05], autoRes: ['卡頓時自動降低解析度（1 = 開）', 0, 1, 1], brightness: ['亮度', 0.2, 2.5, 0.05], bloom: ['泛光強度（0 = 關閉，較順）', 0, 1.5, 0.05], camDist: ['鏡頭水平距離 Z / X', 8, 50, 0.5],
     camZoomMin: ['鏡頭最近距離（越小越近）', 0.4, 1.5, 0.01],
     animAmp: ['攻擊動作幅度（1 = 原始動作）', 1, 2, 0.05] }],
   ['戰鬥', {
@@ -288,7 +297,8 @@ const GROUPS = [
     tiltKB: ['順著斜坡打的擊飛加成', 0, 4, 0.1], gravity: ['斜面重力', 0, 25, 0.5],
     tiltStiff: ['反應速度', 4, 80, 1], tiltDamp: ['晃動阻尼', 0.5, 20, 0.5], landKick: ['落地／重擊壓平台', 0, 0.5, 0.01] }],
   ['平台形狀', {
-    platW: ['左右角長度（半長）', 6, 18, 0.1], platD: ['前後角長度（半長）', 4, 12, 0.1], thick: ['厚度', 0.05, 1, 0.05] }],
+    platW: ['左右角長度（半長）', 6, 18, 0.1], platD: ['前後角長度（半長）', 4, 12, 0.1], thick: ['厚度', 0.05, 1, 0.05],
+    matWave: ['草蓆波浪起伏的高度', 0, 0.1, 0.005], heriH: ['布邊凸起的高度', 0, 0.06, 0.002], tatamiWear: ['磨損的明顯程度（0 = 全新）', 0, 0.3, 0.01], tatamiMess: ['草蓆的雜亂程度（0 = 整齊平整）', 0, 1.5, 0.05], matDamage: ['每塊墊子平均幾處破損', 0, 4, 0.1] }],
 ];
 const P = { ...DEFAULTS };
 
@@ -354,7 +364,11 @@ const MOVES = {
 // 場景
 // =====================================================================
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });   // 有獨立顯示卡的電腦：要求使用獨立顯示卡
-renderer.setPixelRatio(Math.min(devicePixelRatio, P.resScale));   // 高解析度螢幕不用到 2 倍，省下大量繪製（可在面板調整）
+// 實際的畫面解析度倍率：
+//   2 以下：不超過螢幕本身的像素密度（一般螢幕是 1、Retina 是 2），超過也只是白算
+//   超過 2：刻意用比螢幕更高的解析度來畫再縮小（超取樣），邊緣和細紋更細緻，但像素數是平方成長，非常吃顯示卡
+const targetPR = () => P.resScale > 2 ? P.resScale : Math.min(devicePixelRatio, P.resScale);
+renderer.setPixelRatio(targetPR());
 renderer.shadowMap.enabled = true;
 // 診斷用：畫面異常時記下原因，顯示在右下角 FPS 旁邊（GL = 顯示卡的繪圖環境中斷；cam = 鏡頭數值壞掉後已自動重設；pos = 角色位置壞掉後已自動重設）
 const diag = { gl: 0, cam: 0, pos: 0 };
@@ -370,13 +384,22 @@ const FX_GLOW = 4.6;                     // 發光特效的亮度倍率（超過
 let composer = null, bloomPass = null;
 function sizeComposer(w, h) {
   const pr = renderer.getPixelRatio();
+  // 效能：解析度已經比螢幕高的時候（超取樣），畫面縮小本身就有抗鋸齒的效果，不用再多做一次抗鋸齒
+  const smp = pr > devicePixelRatio + 0.01 ? 0 : 2;
+  composer.renderTarget1.samples = composer.renderTarget2.samples = smp;
   composer.setPixelRatio(pr); composer.setSize(w, h);
-  bloomPass.setSize(w * pr * 0.5, h * pr * 0.5);       // 效能：泛光本來就是模糊的，用一半的解析度算（像素數是四分之一）
+  const bp = Math.min(pr, 2) * 0.5;                    // 效能：泛光本來就是模糊的，用一半的解析度算；解析度再高，泛光也不用跟著變大
+  bloomPass.setSize(w * bp, h * bp);
 }
 let shadowTick = 0;
+// 效能：泛光的後製很貴（整個畫面要多處理好幾次，高解析度時 FPS 會直接減半）。
+//   但會發光的只有命中的閃光、衝擊環、光條，而且只出現一瞬間 —— 所以畫面上沒有發光特效時直接畫，不走後製；有的時候才走
+let glowFx = 0;                          // 畫面上還活著的發光特效數量
+let postActive = false, postWarm = false;   // 這一格有沒有走後製；後製是否已經預先跑過一次（避免第一次命中時卡一下）
 function draw() {
   renderer.shadowMap.needsUpdate = (shadowTick++ & 1) === 0;   // 陰影每兩格更新一次
-  if (!(P.bloom > 0.01)) { renderer.render(scene, camera); return; }
+  if (!(P.bloom > 0.01) || (glowFx <= 0 && postWarm)) { postActive = false; renderer.render(scene, camera); return; }
+  postActive = glowFx > 0; postWarm = true;
   if (!composer) {
     try {
       const rt = new THREE.WebGLRenderTarget(innerWidth || 2, innerHeight || 2, { type: THREE.HalfFloatType, samples: 2 });   // 解析度已經高於 1，抗鋸齒取 2 倍就夠
@@ -471,25 +494,127 @@ const MAT_N = 5;                         // 5 × 5 塊（格線和菱形的邊�
 const MAT_H = 0.14;                      // 墊子厚度
 const MAT_GAP = 0.03;                    // 墊子之間的縫
 const HERI = 0.05;                       // 黑布邊寬度（佔墊子的比例）
+const TATAMI_BUMP = 1.1, TATAMI_ROUGH = 0.6;   // 掃描貼圖的凹凸、粗糙度要疊多少（0 = 不用，只靠程式算的草紋）
 const RIBS = 64;                         // 每塊墊子的草紋條數（比真實少，遠處鏡頭也看得出一條條）
-const slabTop = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, envMapIntensity: 0.45 });   // 反光少一點，紅色才不會被洗淡
-const slabSide = new THREE.MeshStandardMaterial({ color: 0x0c0c10, roughness: 0.9 });   // 墊子底下的平台本體
+const slabTop = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, metalness: 0, envMapIntensity: 0.45, vertexColors: true });   // 反光少一點，紅色才不會被洗淡
+// 平台本體（墊子底下）：木框 → 內縮的暗層 → 底樑，側面看是一層一層的木作，不是一片平的
+// 木紋和布邊的紋樣都是程式畫的（不用另外下載貼圖）
+function makeWoodTex() {
+  const W = 512, H = 128, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'); let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  c.fillStyle = '#6b4526'; c.fillRect(0, 0, W, H);
+  for (let i = 0; i < 260; i++) {                         // 順著長邊的木紋：深淺不一的細線，微微彎曲
+    const y = rnd() * H, a = 0.05 + rnd() * 0.16, dark = rnd() < 0.7;
+    c.strokeStyle = dark ? `rgba(38,20,8,${a})` : `rgba(190,140,90,${a * 0.7})`; c.lineWidth = 0.5 + rnd() * 1.6;
+    c.beginPath(); c.moveTo(0, y); const w1 = (rnd() - 0.5) * 7, w2 = (rnd() - 0.5) * 7;
+    c.bezierCurveTo(W * 0.33, y + w1, W * 0.66, y + w2, W, y); c.stroke();
+  }
+  for (let i = 0; i < 3; i++) {                           // 幾個木節
+    const x = rnd() * W, y = 20 + rnd() * (H - 40), r = 5 + rnd() * 7, g = c.createRadialGradient(x, y, 0, x, y, r * 2.2);
+    g.addColorStop(0, 'rgba(30,14,5,0.55)'); g.addColorStop(1, 'rgba(30,14,5,0)'); c.fillStyle = g; c.beginPath(); c.ellipse(x, y, r * 2.4, r, 0, 0, Math.PI * 2); c.fill();
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(0.45, 2.2);
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+}
+function makeHeriTex() {                                    // 榻榻米布邊的織紋：深色底上一排排暗金色的菱形小紋，加上使用過的痕跡
+  const W = 1024, H = 64, cv = document.createElement('canvas'); cv.width = W; cv.height = H;   // 很長的一條（32 個菱形），每一段的磨損都不一樣
+  const c = cv.getContext('2d');
+  c.fillStyle = '#0b0b10'; c.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 2) { c.fillStyle = y % 4 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.25)'; c.fillRect(0, y, W, 1); }   // 布的織線
+  const dia = (x, y, r, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y - r); c.lineTo(x + r, y); c.lineTo(x, y + r); c.lineTo(x - r, y); c.closePath(); c.fill(); };
+  for (let i = 0; i < W / 32; i++) {
+    const x = 16 + i * 32;
+    dia(x, 32, 11, '#6f5621'); dia(x, 32, 7, '#0b0b10'); dia(x, 32, 3.2, '#8a6c2a');
+    dia(x + 16, 12, 3, '#4d3c18'); dia(x + 16, 52, 3, '#4d3c18');
+  }
+  c.fillStyle = '#5b4619'; c.fillRect(0, 3, W, 1.5); c.fillRect(0, H - 4.5, W, 1.5);      // 上下各一條細金線
+  // ---- 磨損（強度跟著「磨損的明顯程度」）----
+  const k = Math.min(2.2, P.tatamiWear / 0.14);              // 1 = 預設的磨損程度
+  if (k > 0.01) {
+    let sd = 733; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    // 刮痕：斜斜的淺色細線
+    c.lineCap = 'round';
+    for (let i = 0; i < 150 * k; i++) {
+      const x = rnd() * W, y = rnd() * H, len = 6 + rnd() * 26, a = (rnd() - 0.5) * 1.4;
+      c.strokeStyle = `rgba(190,178,160,${(0.06 + rnd() * 0.16) * Math.min(1.4, k)})`; c.lineWidth = 0.5 + rnd() * 0.9;
+      c.beginPath(); c.moveTo(x, y); c.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); c.stroke();
+    }
+    const mkN = (rx, ry) => { const g = new Float32Array(rx * ry); for (let i = 0; i < g.length; i++) g[i] = rnd();   // 平滑的亂數場 0 ~ 1（左右可以無縫接起來）
+      return (x, y) => { const fx = x / W * rx, fy = Math.min(ry - 1.001, y / H * (ry - 1)), x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+        const i0 = x0 % rx, i1 = (x0 + 1) % rx; return (g[y0 * rx + i0] * (1 - sx) + g[y0 * rx + i1] * sx) * (1 - sy) + (g[(y0 + 1) * rx + i0] * (1 - sx) + g[(y0 + 1) * rx + i1] * sx) * sy; }; };
+    const nBig = mkN(14, 3), nMid = mkN(60, 5), nFine = mkN(400, 24);
+    const im = c.getImageData(0, 0, W, H), d = im.data;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const q = (y * W + x) * 4, big = nBig(x, y), mid = nMid(x, y), fine = nFine(x, y);
+      // 褪色：一片一片不規則的地方，黑色變成灰撲撲的褐色，金色的紋樣也被磨淡
+      const fade = Math.max(0, Math.min(1, (big * 0.65 + mid * 0.35 - 0.44) * 3.2)) * Math.min(1, 0.8 * k) * (0.75 + fine * 0.5);
+      // 邊緣：布邊的兩側最常被踩、被掃，磨得比中間嚴重，線頭露出來
+      const eg = Math.min(y, H - 1 - y), edge = eg < 7 ? (1 - eg / 7) * (0.3 + mid * 0.7) * Math.min(1, 0.8 * k) : 0;
+      const w = Math.min(0.85, fade + edge);
+      d[q] += (74 + fine * 26 - d[q]) * w; d[q + 1] += (66 + fine * 22 - d[q + 1]) * w; d[q + 2] += (58 + fine * 18 - d[q + 2]) * w;
+      // 磨穿的小洞：最嚴重的幾個點露出底下的草色
+      const hole = Math.max(0, Math.min(1, (big * 0.5 + mid * 0.5 - (0.86 - 0.05 * Math.min(2, k))) * 14)) * (fine > 0.35 ? 1 : 0.3);
+      if (hole > 0) { d[q] += (150 - d[q]) * hole * 0.8; d[q + 1] += (116 - d[q + 1]) * hole * 0.8; d[q + 2] += (74 - d[q + 2]) * hole * 0.8; }
+    }
+    c.putImageData(im, 0, 0);
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); return t;
+}
+const slabSide = new THREE.MeshStandardMaterial({ color: 0xffffff, map: makeWoodTex(), roughness: 0.62, envMapIntensity: 0.5 });   // 木框、底樑
+const slabDark = new THREE.MeshStandardMaterial({ color: 0x120c08, roughness: 0.95 });                                           // 兩層木頭之間內縮的暗層
+const heriMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: makeHeriTex(), roughness: 0.82, envMapIntensity: 0.35, side: THREE.DoubleSide });  // 榻榻米的布邊
+let wearTimer = 0;
 function loadTatami() {
-  const img = new Image();
-  img.onload = () => {
+  // 三張掃描貼圖：顏色（必要）、凹凸方向、粗糙度（後兩張讀不到就只用程式算的，不影響遊戲）
+  const load = url => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => res(null); im.src = url; });
+  Promise.all([load('color.jpg'), load('normal.jpg'), load('roughness.jpg')]).then(([img, nImg, rImg]) => {
+    if (!img) { loadDone.mat = true; return; }
     const N = 1024, n = N * N;
-    const src = document.createElement('canvas'); src.width = src.height = N;
-    const sc = src.getContext('2d'); sc.drawImage(img, 0, 0, N, N);
-    const raw = sc.getImageData(0, 0, N, N).data;
+    const pixels = im => { const cv = document.createElement('canvas'); cv.width = cv.height = N; const c = cv.getContext('2d'); c.drawImage(im, 0, 0, N, N); return c.getImageData(0, 0, N, N).data; };
+    const raw = pixels(img), nRaw = nImg ? pixels(nImg) : null, rRaw = rImg ? pixels(rImg) : null;
+    let rMean = 0; if (rRaw) { for (let k = 0; k < n; k++) rMean += rRaw[k * 4]; rMean /= n * 255; }
+    const inHeriRow = new Uint8Array(N);
+    // 磨損：幾片不規則的區域，磨得多的地方顏色淺一點、表面比較光滑；另外有幾處小小的深色污漬
+    const wear = new Float32Array(n);
+    { let ws = 77; const wr = () => (ws = (ws * 16807) % 2147483647) / 2147483647;
+      const blob = (cx, cy, r, amt) => { const r2 = r * r; for (let y = Math.max(0, cy - r | 0); y < Math.min(N, cy + r | 0); y++) for (let x = Math.max(0, cx - r | 0); x < Math.min(N, cx + r | 0); x++) { const d2 = (x - cx) * (x - cx) + (y - cy) * (y - cy); if (d2 < r2) { const f = 1 - d2 / r2; wear[y * N + x] += amt * f * f; } } };
+      for (let i = 0; i < 9; i++) blob(wr() * N, wr() * N, 90 + wr() * 170, P.tatamiWear * (0.5 + wr() * 0.5));          // 淺色的磨損
+      for (let i = 0; i < 2; i++) blob(wr() * N, wr() * N, 16 + wr() * 26, -P.tatamiWear * (0.4 + wr() * 0.3));        // 深色的小污漬（少量、淡淡的）
+    }
     let seed = 5; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
     const H = new Float32Array(n), C = new Float32Array(n * 3), R = new Float32Array(n);
     const ribPx = N / RIBS, border = Math.round(N * HERI);
-    const ribVar = Array.from({ length: RIBS + 1 }, () => (rnd() - 0.5) * 0.12);
+    const ribVar = Array.from({ length: RIBS + 3 }, () => (rnd() - 0.5) * 0.12);
+    // ---- 手工草蓆的不規則感（強度 = P.tatamiMess，0 = 整齊平整）----
+    //   草條彎彎曲曲、粗細高低不一；表面有大片的起伏；編織的線斜斜地一上一下穿過草條；到處有翹起來的零散草稈
+    const MESS = P.tatamiMess;
+    const mkNoise = res => {                               // 平滑的亂數場（可無縫重複）：回傳 -1 ~ 1
+      const g = new Float32Array(res * res); for (let i = 0; i < g.length; i++) g[i] = rnd() * 2 - 1;
+      return (x, y) => {
+        const fx = x / N * res, fy = y / N * res, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+        const sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty), i0 = (x0 % res + res) % res, j0 = (y0 % res + res) % res, i1 = (i0 + 1) % res, j1 = (j0 + 1) % res;
+        return (g[j0 * res + i0] * (1 - sx) + g[j0 * res + i1] * sx) * (1 - sy) + (g[j1 * res + i0] * (1 - sx) + g[j1 * res + i1] * sx) * sy;
+      };
+    };
+    const nWarp = mkNoise(20), nWarp2 = mkNoise(48), nFine = mkNoise(120), nLump = mkNoise(5), nLump2 = mkNoise(13), nTear = mkNoise(11);
+    const ribH = Array.from({ length: RIBS + 3 }, () => 0.72 + rnd() * 0.5);          // 每一條草的高度（粗細）不同
+    const ribPhase = Array.from({ length: RIBS + 3 }, () => rnd() * 6.28);
+    // 零散的草稈：亮的（翹起來、反光）畫在紅色通道，暗的（縫隙、陰影）畫在綠色通道
+    const strawCv = document.createElement('canvas'); strawCv.width = strawCv.height = N;
+    const stc = strawCv.getContext('2d'); stc.fillStyle = '#000'; stc.fillRect(0, 0, N, N); stc.globalCompositeOperation = 'lighter'; stc.lineCap = 'round';
+    for (let i = 0; i < 2600; i++) {
+      const x = rnd() * N, y = border + rnd() * (N - 2 * border), len = 18 + rnd() * 110, ang = (rnd() - 0.5) * (rnd() < 0.2 ? 2.2 : 0.7), bright = rnd() < 0.8;
+      stc.strokeStyle = bright ? `rgba(255,0,0,${0.4 + rnd() * 0.6})` : `rgba(0,255,0,${0.35 + rnd() * 0.6})`; stc.lineWidth = 1 + rnd() * 2.6;
+      stc.beginPath(); stc.moveTo(x, y); stc.quadraticCurveTo(x + Math.cos(ang) * len * 0.5 + (rnd() - 0.5) * 8, y + Math.sin(ang) * len * 0.5 + (rnd() - 0.5) * 8, x + Math.cos(ang) * len, y + Math.sin(ang) * len); stc.stroke();
+    }
+    const straw = stc.getImageData(0, 0, N, N).data;
+    const threadGap = N / 22 * 2.6, threadW = 4.5;      // 間隔越大，白色的編織線越少                // 編織線：間隔、粗細（像素）
     for (let y = 0; y < N; y++) {
       const ph = (y % ribPx) / ribPx;                       // 0 ~ 1：一條草紋從邊到邊
       const rib = Math.pow(Math.sin(Math.PI * ph), 0.8);    // 中間鼓起、條與條之間凹下
       const ribTone = ribVar[Math.floor(y / ribPx)];        // 每一條草的顏色略有不同（天然材料）
-      const inHeri = y < border || y >= N - border;
+      const inHeri = y < border || y >= N - border; inHeriRow[y] = inHeri ? 1 : 0;
       for (let x = 0; x < N; x++) {
         const k = y * N + x, l = (0.3 * raw[k * 4] + 0.59 * raw[k * 4 + 1] + 0.11 * raw[k * 4 + 2]) / 255;
         if (inHeri) {                                       // 黑布邊：細布紋
@@ -499,10 +624,32 @@ function loadTatami() {
           C[k * 3] = c; C[k * 3 + 1] = c; C[k * 3 + 2] = c * 1.15; R[k] = 0.97;
         } else {
           const d = (l - 0.62) * 2.2;                       // 原本掃描的細編織
-          H[k] = rib * 0.7 + d * 0.45;
-          const v = Math.max(0, Math.min(1.2, 0.4 + rib * 0.32 + d * 0.65 + ribTone));
-          C[k * 3] = 0.5 * v; C[k * 3 + 1] = 0.035 * v; C[k * 3 + 2] = 0.025 * v;   // 紅色草蓆
-          R[k] = 0.96 - rib * 0.16;                          // 鼓起的地方稍微有光澤（草的自然光澤，不像塑膠）
+          let ribV = rib, toneV = ribTone, thr = 0, sL = 0, sD = 0, lump = 0;
+          if (MESS > 0.001) {
+            // 草條彎曲：把「這個點屬於哪一條草」的位置上下扭動，草條就會彎、會擠在一起、會岔開
+            const yw = y + MESS * ribPx * (nWarp(x, y) * 0.9 + nWarp2(x, y) * 0.8 + nFine(x, y) * 0.35 + Math.sin(x * 0.012 + ribPhase[Math.floor(y / ribPx)]) * 0.25);
+            const ri = Math.max(0, Math.min(RIBS + 1, Math.floor(yw / ribPx) + 1)), ph2 = yw / ribPx - Math.floor(yw / ribPx);
+            const hh = 1 + (ribH[ri] - 1) * MESS;
+            ribV = Math.pow(Math.sin(Math.PI * ph2), 0.8) * hh; toneV = ribVar[ri] * (1 + MESS);
+            lump = (nLump(x, y) * 0.5 + nLump2(x, y) * 0.22) * MESS;          // 大片的高低起伏
+            // 編織線：斜斜地走，每隔一條草才露出來（一上一下），所以看起來是一段一段斜的短線
+            const u = x * 0.42 + yw + nWarp2(y, x) * 2.5 * MESS, ti = Math.floor(u / threadGap), tp = u - ti * threadGap;   // 線的走向：斜斜的、比較接近草條的方向，所以每一段露出來的線是長長的斜線
+            if (tp < threadW && ((ri + ti) & 1) === 0) { const e = 1 - Math.abs(tp / threadW * 2 - 1); thr = Math.min(1, e * 2.2) * Math.min(1, Math.sin(Math.PI * ph2) * 2.2) * Math.min(1, MESS * 1.3); }
+            sL = straw[k * 4] / 255 * MESS; sD = straw[k * 4 + 1] / 255 * MESS;
+            // 破損：一塊一塊不規則的地方草稈斷掉、脫落，露出底下深色的草芯；破口的邊緣是翹起來的斷草（比較亮）
+            const tn = nTear(x, y) * 0.7 + nWarp2(x, y) * 0.3, tear = Math.max(0, Math.min(1, (tn - (0.74 - 0.2 * Math.min(1.4, MESS))) / 0.12));   // 門檻越高，破損的深色缺口越少
+            if (tear > 0) { const rim = tear * (1 - tear) * 4; sD = Math.min(1.6, sD + tear * 0.85); sL += rim * 0.9; ribV *= 1 - tear * 0.7; }
+          }
+          // 縫線：把草蓆勒出一段一段的鼓起（和墊子的波浪對齊）；縫線的位置凹下去、顏色深（不畫白色的線）
+          { const fr = x / N * MAT_WAVES, dv = Math.abs(fr - Math.round(fr)) * (N / MAT_WAVES);
+            if (dv < 7) { const e = 1 - dv / 7; lump -= e * 0.55; sD += e * 0.5; } }
+          H[k] = ribV * 0.7 + d * 0.45 + lump + thr * 0.5 + sL * 0.42 - sD * 0.3;
+          const v = Math.max(0, Math.min(1.3, 0.4 + ribV * 0.32 + d * 0.65 + toneV + wear[k] + lump * 0.22 + sL * 0.5 - sD * 0.24));
+          // 紅色草蓆；編織線是褪色的淺色線
+          C[k * 3] = 0.5 * v * (1 - thr) + 0.7 * thr; C[k * 3 + 1] = 0.035 * v * (1 - thr) + 0.36 * thr; C[k * 3 + 2] = 0.025 * v * (1 - thr) + 0.29 * thr;
+          R[k] = 0.96 - Math.min(1, ribV) * 0.16 - sL * 0.12 + thr * 0.03;    // 鼓起的地方稍微有光澤（草的自然光澤，不像塑膠）
+          if (rRaw) R[k] += (rRaw[k * 4] / 255 - rMean) * TATAMI_ROUGH;
+          R[k] -= Math.max(0, wear[k]) * 0.9;                 // 磨過的地方比較光滑   // 掃描的粗糙度：每一根草的光澤略有不同
         }
       }
     }
@@ -516,78 +663,241 @@ function loadTatami() {
         const k = y * N + x;
         const dx = (H[y * N + Math.min(N - 1, x + 1)] - H[y * N + Math.max(0, x - 1)]) * S;
         const dy = (H[Math.min(N - 1, y + 1) * N + x] - H[Math.max(0, y - 1) * N + x]) * S;
-        const L = Math.hypot(dx, dy, 1);
-        d[k * 4] = (-dx / L * 0.5 + 0.5) * 255; d[k * 4 + 1] = (dy / L * 0.5 + 0.5) * 255; d[k * 4 + 2] = (1 / L * 0.5 + 0.5) * 255; d[k * 4 + 3] = 255;
+        let nx = -dx, ny = dy, nz = 1;
+        if (nRaw && !inHeriRow[y]) {                         // 疊上掃描的凹凸：草蓆一根一根編織的細節（布邊不套用）
+          nx += (nRaw[k * 4] / 255 * 2 - 1) * TATAMI_BUMP; ny += (nRaw[k * 4 + 1] / 255 * 2 - 1) * TATAMI_BUMP;
+        }
+        const L = Math.hypot(nx, ny, nz);
+        d[k * 4] = (nx / L * 0.5 + 0.5) * 255; d[k * 4 + 1] = (ny / L * 0.5 + 0.5) * 255; d[k * 4 + 2] = (nz / L * 0.5 + 0.5) * 255; d[k * 4 + 3] = 255;
       }
     });
     const rghCv = mk(d => { for (let k = 0; k < n; k++) { const r = Math.max(0, Math.min(1, R[k])) * 255; d[k * 4] = d[k * 4 + 1] = d[k * 4 + 2] = r; d[k * 4 + 3] = 255; } });
-    const tex = (cv, srgb) => { const t = new THREE.CanvasTexture(cv); t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+    const tex = (cv, srgb) => { const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t; };
+    for (const k of ['map', 'normalMap', 'roughnessMap']) if (slabTop[k]) slabTop[k].dispose();   // 重新產生時先釋放舊的貼圖
     slabTop.map = tex(colCv, true); slabTop.normalMap = tex(nrmCv); slabTop.roughnessMap = tex(rghCv);
     slabTop.normalScale.set(1, 1); slabTop.needsUpdate = true;
     loadDone.mat = true;
-  };
-  img.onerror = () => { loadDone.mat = true; };
-  img.src = 'color.jpg';
+  });
 }
 const slab = new THREE.Mesh(undefined, slabSide);              // 平台本體（在墊子底下）
 slab.receiveShadow = slab.castShadow = true;
 platform.add(slab);
+const slabGap = new THREE.Mesh(undefined, slabDark), slabBeam = new THREE.Mesh(undefined, slabSide);   // 內縮的暗層、底樑（含一排樑頭）
+for (const m of [slabGap, slabBeam]) { m.receiveShadow = m.castShadow = true; platform.add(m); }
 const matsMesh = new THREE.Mesh(undefined, slabTop);           // 25 塊墊子合成一個物件（一次繪製）
 matsMesh.receiveShadow = matsMesh.castShadow = true;
 platform.add(matsMesh);
+const strawMesh = new THREE.Mesh(undefined, new THREE.MeshStandardMaterial({ color: 0xb8402c, roughness: 0.75, side: THREE.DoubleSide }));   // 散落、翹起的草稈
+strawMesh.receiveShadow = true; platform.add(strawMesh);
+const heriMesh = new THREE.Mesh(undefined, heriMat);           // 所有墊子的布邊（稍微凸起的實體，合成一個物件）
+heriMesh.receiveShadow = true;
+platform.add(heriMesh);
 // 菱形座標 (a, b) → 平台座標 (x, z)；a、b 都在 −1 ~ 1
 const abToXZ = (a, b) => fromUV(P.platW * (a + b) / 2, P.platD * (a - b) / 2);
 const xzToAB = (x, z) => { const u = toU(x, z) / P.platW, v = toV(x, z) / P.platD; return [u + v, u - v]; };
+// 一塊榻榻米：頂面是細分的網格，順著草條的方向有一鼓一鼓的波浪（縫線把草蓆勒出一段一段的鼓起），邊緣往下收圓
+const MAT_WAVES = 6;                     // 每塊墊子有幾段鼓起
+// 墊子表面的高度：fa、fb 是在這塊墊子裡的位置（0 ~ 1）。縫線的位置凹下去、兩條縫線中間鼓起來，靠近邊緣往下收
+function matY(fa, fb) {
+  const sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+  const puff = Math.pow(Math.abs(Math.sin(Math.PI * fa * MAT_WAVES)), 0.55);
+  const ef = sm(0, 0.03, Math.min(fa, 1 - fa)) * sm(0, 0.07, Math.min(fb, 1 - fb));
+  return [P.matWave * (puff - 0.6) * ef - (1 - ef) * 0.032, ef];
+}
+// 破損是「結構上的凹陷」：把那一塊的表面往下壓（草被磨掉、少了一層），不是另外貼一片東西上去
+//   dents：這塊墊子上的破損（位置、大小、亂數種子）。有破損的墊子網格切得比較細，凹陷的邊緣才會不規則
+const dentNoise = (x, y) => {                              // 便宜的平滑亂數（-1 ~ 1）
+  const h = (i, j) => { const v = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return (v - Math.floor(v)) * 2 - 1; };
+  const x0 = Math.floor(x), y0 = Math.floor(y), tx = x - x0, ty = y - y0, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+  return (h(x0, y0) * (1 - sx) + h(x0 + 1, y0) * sx) * (1 - sy) + (h(x0, y0 + 1) * (1 - sx) + h(x0 + 1, y0 + 1) * sx) * sy;
+};
+const DENT_RIM = 0.45;                   // 破口邊緣加深的程度（0 = 不加深）
+const DENT_DEPTH = 0.06;                // 凹陷最深的地方比表面低多少
+const DENT_COLOR = [0.5, 0.42, 0.42];    // 凹陷處的顏色倍率：比草蓆面更深的紅（露出底下顏色比較深的草）
+function matGeo(a0, b0, step, shrink, dents = []) {
+  const NU = dents.length ? 72 : 36, NV = dents.length ? 30 : 8, aL = a0 + shrink, aR = a0 + step - shrink, bL = b0 + shrink, bR = b0 + step - shrink;
+  const sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+  let hs = (Math.round((a0 + 2) * 977) * 31 + Math.round((b0 + 2) * 613) * 17 + 7) % 2147483647 || 1; const hr = () => (hs = (hs * 16807) % 2147483647) / 2147483647;
+  // 每一塊墊子用同一張貼圖的不同部分：隨機左右翻、前後翻，再順著草條的方向錯開幾段（錯開的量是一段鼓起的整數倍，凹槽才會對齊）
+  //   2 × 2 × 6 = 24 種排法，所以每塊的污漬、破損、編織線位置都不一樣，不用多產生貼圖
+  const flipU = hr() < 0.5, flipV = hr() < 0.5, shiftU = Math.floor(hr() * MAT_WAVES) / MAT_WAVES;
+  const P0 = [], UV = [], CL = [];
+  for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) {
+    const fa = i / NU, fb = j / NV, a = aL + (aR - aL) * fa, b = bL + (bR - bL) * fb, [x, z] = abToXZ(a, b);
+    const [yb, ef] = matY(fa, fb);
+    let dw = 0, rim = 0;                                     // 這個點凹陷的程度（0 ~ 1）、是不是在破口的邊緣
+    for (const dt of dents) {
+      const dx = (fa - dt.ca) / (dt.w / 2), dy = (fb - dt.cb) / (dt.h / 2);
+      if (Math.abs(dx) > 1.9 || Math.abs(dy) > 1.9) continue;
+      // 邊界不規則：兩層大小不同的亂數，再加上「每一根草裂開的長短不同」（順著草條方向的毛邊）
+      const inside = 1 - Math.hypot(dx, dy) + dentNoise(fa * 9 + dt.seed, fb * 9 + dt.seed) * 0.5 + dentNoise(fa * 31 + dt.seed, fb * 31) * 0.2 + dentNoise(dt.seed * 3.7, fb * 160) * 0.28;
+      dw = Math.max(dw, sm(0, 0.45, inside));
+      rim = Math.max(rim, sm(-0.16, 0.03, inside) * (1 - sm(0.03, 0.3, inside)));        // 破口邊緣的一圈：剛好在凹下去的斜面上
+    }
+    const y = yb + (hr() - 0.5) * P.matWave * 0.22 * ef - dw * DENT_DEPTH * ef * (1 + dentNoise(fa * 70, fb * 70) * 0.25);   // 凹陷的底也不是平的
+    const sh = 1 - rim * DENT_RIM;                           // 邊緣加深：像破口邊緣的陰影，俯視時輪廓才清楚
+    CL.push([(1 + (DENT_COLOR[0] - 1) * dw) * sh, (1 + (DENT_COLOR[1] - 1) * dw) * sh, (1 + (DENT_COLOR[2] - 1) * dw) * sh]);
+    const tu = Math.min(1, Math.max(0, (a - a0) / step)), tv = Math.min(1, Math.max(0, (b - b0) / step));
+    P0.push([x, y, z]); UV.push([(flipU ? 1 - tu : tu) + shiftU, flipV ? 1 - tv : tv]);
+  }
+  const at = (i, j) => P0[Math.max(0, Math.min(NV, j)) * (NU + 1) + Math.max(0, Math.min(NU, i))];
+  const NR = P0.map((_, k) => {                               // 每個點的法線：用左右、前後鄰居的高度差算
+    const i = k % (NU + 1), j = (k - i) / (NU + 1), A = at(i - 1, j), B = at(i + 1, j), C = at(i, j - 1), D = at(i, j + 1);
+    const e1 = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], e2 = [D[0] - C[0], D[1] - C[1], D[2] - C[2]];
+    let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; if (n[1] < 0) n = n.map(v => -v);
+    const l = Math.hypot(...n) || 1; return n.map(v => v / l);
+  });
+  const pos = [], nor = [], uv = [], col = [];
+  const tri = (ks, n) => { for (const k of ks) { pos.push(...P0[k]); nor.push(...(n || NR[k])); uv.push(...UV[k]); col.push(...CL[k]); } };
+  const up = (() => { const A = P0[0], B = P0[1], C = P0[NU + 1]; return ((B[2] - A[2]) * (C[0] - A[0]) - (B[0] - A[0]) * (C[2] - A[2])) > 0; })();   // 三角形要朝上
+  for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) {
+    const k0 = j * (NU + 1) + i, k1 = k0 + 1, k2 = k0 + NU + 1, k3 = k2 + 1;
+    if (up) { tri([k0, k1, k3]); tri([k0, k3, k2]); } else { tri([k0, k3, k1]); tri([k0, k2, k3]); }
+  }
+  // 側面：沿著外圈往下拉到墊子底部
+  const ring = [];
+  for (let i = 0; i < NU; i++) ring.push(i); for (let j = 0; j < NV; j++) ring.push(j * (NU + 1) + NU);
+  for (let i = NU; i > 0; i--) ring.push(NV * (NU + 1) + i); for (let j = NV; j > 0; j--) ring.push(j * (NU + 1));
+  const cx = (P0[0][0] + P0[P0.length - 1][0]) / 2, cz = (P0[0][2] + P0[P0.length - 1][2]) / 2;
+  for (let r = 0; r < ring.length; r++) {
+    const A = P0[ring[r]], B = P0[ring[(r + 1) % ring.length]], A2 = [A[0], -MAT_H, A[2]], B2 = [B[0], -MAT_H, B[2]];
+    let n = [-(B[2] - A[2]), 0, B[0] - A[0]]; const l = Math.hypot(n[0], n[2]) || 1; n = [n[0] / l, 0, n[2] / l];
+    const out = n[0] * ((A[0] + B[0]) / 2 - cx) + n[2] * ((A[2] + B[2]) / 2 - cz) > 0; if (!out) n = [-n[0], 0, -n[2]];
+    const ua = UV[ring[r]], ub = UV[ring[(r + 1) % ring.length]];
+    const quad = out ? [[A, ua], [A2, ua], [B2, ub], [A, ua], [B2, ub], [B, ub]] : [[A, ua], [B2, ub], [A2, ua], [A, ua], [B, ub], [B2, ub]];
+    for (const [pt, t] of quad) { pos.push(...pt); nor.push(...n); uv.push(...t); col.push(1, 1, 1); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return g;
+}
 function buildMats() {
+  let msd = 23; const matRnd = () => (msd = (msd * 16807) % 2147483647) / 2147483647;   // 固定的亂數：每次重建顏色都一樣
+  const heriQuads = [];
+  let dsd = 9157; const dmgRnd = () => (dsd = (dsd * 16807) % 2147483647) / 2147483647;   // 破損用自己的亂數，改破損數量不會動到其他東西的位置
+  // 破損的總數是固定的（墊子數 × P.matDamage，四捨五入），再隨機分給各塊墊子 —— 數量不會因為運氣忽多忽少
+  const dentCount = new Array(MAT_N * MAT_N).fill(0), dentSpots = [];
+  for (let q = Math.round(MAT_N * MAT_N * P.matDamage); q > 0; q--) dentCount[Math.floor(dmgRnd() * MAT_N * MAT_N)]++;
   const gradA = Math.hypot(1 / P.platW, 1 / P.platD);           // 1 個世界單位 = 多少 a（或 b）
   const bevel = 0.035;
-  const shrink = (MAT_GAP / 2 + bevel) * gradA;
+  const shrink = (MAT_GAP / 2 + 0.01) * gradA;                  // 墊子的邊緣現在是往下收圓的，不用再留倒角的寬度
   const step = 2 / MAT_N, parts = [];
   for (let i = 0; i < MAT_N; i++) for (let j = 0; j < MAT_N; j++) {
     const a0 = -1 + i * step, b0 = -1 + j * step;
-    const shape = new THREE.Shape();
-    [[a0 + shrink, b0 + shrink], [a0 + step - shrink, b0 + shrink], [a0 + step - shrink, b0 + step - shrink], [a0 + shrink, b0 + step - shrink]]
-      .forEach(([a, b], k) => { const [x, z] = abToXZ(a, b); k ? shape.lineTo(x, -z) : shape.moveTo(x, -z); });
-    const g = new THREE.ExtrudeGeometry(shape, { depth: MAT_H - 2 * 0.03, bevelEnabled: true, bevelThickness: 0.03, bevelSize: bevel, bevelSegments: 3, curveSegments: 1 });
-    g.rotateX(-Math.PI / 2);
-    g.translate(0, -MAT_H + 0.03, 0);
-    // 貼圖座標：每塊墊子自己的 0 ~ 1（從上往下投影，側面會拉伸布邊／草蓆邊緣的顏色）
-    const pos = g.attributes.position, uv = g.attributes.uv;
-    for (let k = 0; k < pos.count; k++) {
-      const [a, b] = xzToAB(pos.getX(k), pos.getZ(k));
-      uv.setXY(k, Math.min(1, Math.max(0, (a - a0) / step)), Math.min(1, Math.max(0, (b - b0) / step)));
-    }
-    g.clearGroups();
+    // 破損：每塊墊子隨機 0 ~ 數處（平均 P.matDamage 處），位置和大小隨機，不會壓到布邊
+    const dents = [], cnt = dentCount[i * MAT_N + j];
+    let msd = 4001 + (i * MAT_N + j) * 7919; const mr = () => (msd = (msd * 16807) % 2147483647) / 2147483647;   // 每塊墊子自己的亂數：之後增減破損的數量，已經在的不會移位
+    for (let q = 0; q < cnt; q++) { const w = 0.1 + mr() * 0.13, h = 0.12 + mr() * 0.16; dents.push({ w, h, ca: 0.08 + w / 2 + mr() * (0.84 - w), cb: HERI + 0.05 + h / 2 + mr() * (0.9 - 2 * HERI - h), seed: mr() * 50 }); }
+    const g = matGeo(a0, b0, step, shrink, dents);
+    for (const dt of dents) dentSpots.push(abToXZ(a0 + step * dt.ca, b0 + step * dt.cb));
+    // 每一塊墊子的顏色略有不同（新舊、日曬不一），靠近平台中央、踩得多的顏色淺一點
+    const centre = 1 - Math.min(1, Math.hypot(a0 + step / 2, b0 + step / 2) / 1.1);
+    g.userData.tint = 0.9 + centre * 0.12 + (matRnd() - 0.5) * 0.1;
     parts.push(g);
+    // 布邊：沿著墊子的兩條邊各一條，比草蓆面高一點點
+    for (const [bA, bB] of [[b0 + shrink, b0 + HERI * step], [b0 + step - HERI * step, b0 + step - shrink]]) heriQuads.push([a0 + shrink, a0 + step - shrink, bA, bB]);
   }
   // 合併
   let total = 0; for (const g of parts) total += g.attributes.position.count;
-  const P3 = new Float32Array(total * 3), N3 = new Float32Array(total * 3), U2 = new Float32Array(total * 2);
+  const P3 = new Float32Array(total * 3), N3 = new Float32Array(total * 3), U2 = new Float32Array(total * 2), C3 = new Float32Array(total * 3);
   let o = 0;
   for (const g of parts) {
     const gi = g.index ? g.toNonIndexed() : g;
     P3.set(gi.attributes.position.array, o * 3); N3.set(gi.attributes.normal.array, o * 3); U2.set(gi.attributes.uv.array, o * 2);
+    { const cs = gi.attributes.color.array, t = g.userData.tint; for (let q = 0; q < cs.length; q++) C3[o * 3 + q] = cs[q] * t; }
     o += gi.attributes.position.count;
   }
   const m = new THREE.BufferGeometry();
   m.setAttribute('position', new THREE.BufferAttribute(P3.subarray(0, o * 3), 3));
   m.setAttribute('normal', new THREE.BufferAttribute(N3.subarray(0, o * 3), 3));
   m.setAttribute('uv', new THREE.BufferAttribute(U2.subarray(0, o * 2), 2));
+  m.setAttribute('color', new THREE.BufferAttribute(C3.subarray(0, o * 3), 3));
   if (matsMesh.geometry) matsMesh.geometry.dispose();
-  matsMesh.geometry = m;
+  matsMesh.geometry = m; matsMesh.userData.dentSpots = dentSpots;      // 破損的位置（除錯、檢查用）
+  // 布邊的實體：每條是一個很扁的長條（頂面 + 四個斜的側面），貼上織紋
+  {
+    const hp = [], hn = [], hu = [], gx = Math.hypot(1 / P.platW, 1 / P.platD);
+    let hsd = 611; const heriRnd = () => (hsd = (hsd * 16807) % 2147483647) / 2147483647;
+    const quad = (pts, uvs) => {                              // 兩個三角形；法線由三個點算出來
+      const [A, B, C2, D] = pts, e1 = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], e2 = [D[0] - A[0], D[1] - A[1], D[2] - A[2]];
+      let n = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]]; const l = Math.hypot(...n) || 1; n = n.map(v => v / l);
+      for (const k of [0, 1, 2, 0, 2, 3]) { hp.push(...pts[k]); hn.push(...n); hu.push(...uvs[k]); }
+    };
+    for (const [a1, a2, b1, b2] of heriQuads) {
+      const sl = P.heriH * 0.9 * gx;                           // 側面往外斜出去一點（倒角）
+      const top = [[a1, b1], [a1, b2], [a2, b2], [a2, b1]].map(([a, b]) => { const [x, z] = abToXZ(a, b); return [x, P.heriH, z]; });
+      const base = [[a1 - sl, b1 - sl], [a1 - sl, b2 + sl], [a2 + sl, b2 + sl], [a2 + sl, b1 - sl]].map(([a, b]) => { const [x, z] = abToXZ(a, b); return [x, -0.04, z]; });
+      const len = Math.hypot(top[3][0] - top[0][0], top[3][2] - top[0][2]), rep = len / 4, uo = heriRnd();      // 貼圖很長（4 個單位），每條布邊從不同的地方開始取，磨損的位置才會各不相同
+      const flip = top[1][0] * 0 + ((top[1][2] - top[0][2]) * (top[3][0] - top[0][0]) - (top[1][0] - top[0][0]) * (top[3][2] - top[0][2])) < 0;   // 讓頂面朝上
+      const T = flip ? [top[0], top[3], top[2], top[1]] : top, Bs = flip ? [base[0], base[3], base[2], base[1]] : base;
+      const tuv = flip ? [[uo, 0], [uo + rep, 0], [uo + rep, 1], [uo, 1]] : [[uo, 0], [uo, 1], [uo + rep, 1], [uo + rep, 0]];
+      quad(T, tuv);
+      for (let k = 0; k < 4; k++) { const k2 = (k + 1) % 4; quad([T[k2], T[k], Bs[k], Bs[k2]], [tuv[k2], tuv[k], tuv[k], tuv[k2]]); }
+    }
+    const hg = new THREE.BufferGeometry();
+    hg.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute('normal', new THREE.Float32BufferAttribute(hn, 3)); hg.setAttribute('uv', new THREE.Float32BufferAttribute(hu, 2));
+    if (heriMesh.geometry) heriMesh.geometry.dispose();
+    heriMesh.geometry = hg;
+  }
+  // 翹起來、脫落的草稈：一根一根真的躺在墊子上（有些伸出墊子邊緣、橫跨縫隙），輪廓才會有破損的感覺
+  {
+    const sp = [], sn = [], stepW = 2 / MAT_N, per = Math.round(9 * P.tatamiMess);
+    for (let i = 0; i < MAT_N; i++) for (let j = 0; j < MAT_N; j++) for (let q = 0; q < per; q++) {
+      const a = -1 + (i + matRnd() * 1.06 - 0.03) * stepW, b = -1 + (j + matRnd() * 1.06 - 0.03) * stepW;
+      if (Math.abs(a) > 0.985 || Math.abs(b) > 0.985) continue;
+      const [x, z] = abToXZ(a, b), [x2, z2] = abToXZ(a + 0.05, b);                // 草條的方向（順著 a）
+      const base = Math.atan2(z2 - z, x2 - x), ang = base + (matRnd() - 0.5) * (matRnd() < 0.25 ? 2.4 : 0.9);
+      const len = 0.18 + matRnd() * 0.55, w = 0.008 + matRnd() * 0.014, y0 = 0.006 + P.matWave * 0.35 + matRnd() * 0.01, y1 = y0 + (matRnd() < 0.4 ? matRnd() * 0.07 : 0.004);
+      const dx = Math.cos(ang) * len / 2, dz = Math.sin(ang) * len / 2, px = -Math.sin(ang) * w, pz = Math.cos(ang) * w;
+      const A = [x - dx - px, y0, z - dz - pz], B = [x - dx + px, y0, z - dz + pz], C = [x + dx + px, y1, z + dz + pz], D = [x + dx - px, y1, z + dz - pz];
+      for (const pt of [A, B, C, A, C, D]) { sp.push(...pt); sn.push(0, 1, 0); }
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3)); sg.setAttribute('normal', new THREE.Float32BufferAttribute(sn, 3));
+    if (strawMesh.geometry) strawMesh.geometry.dispose();
+    strawMesh.geometry = sg;
+  }
 }
 function buildSlab() {
-  const shape = new THREE.Shape();
-  [[P.platW, 0], [0, -P.platD], [-P.platW, 0], [0, P.platD]].forEach(([u, v], i) => {
-    const [x, z] = fromUV(u, v);
-    i ? shape.lineTo(x, -z) : shape.moveTo(x, -z);
-  });
-  const depth = Math.max(0.05, P.thick - MAT_H);
-  const geo = new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false });
-  geo.rotateX(-Math.PI / 2);
-  geo.translate(0, -MAT_H - depth, 0);                           // 墊子底下
-  if (slab.geometry) slab.geometry.dispose();
-  slab.geometry = geo;
+  // 菱形往內縮 t（世界單位）後擠出一層；bevel：邊緣的小斜面（倒角），會接到光
+  const gradA = Math.hypot(1 / P.platW, 1 / P.platD);
+  const layer = (inset, yTop, h, bevel) => {
+    const b = Math.min(bevel, h * 0.45), k = Math.max(0.05, 1 - (inset + b) * gradA);
+    const shape = new THREE.Shape();
+    [[P.platW * k, 0], [0, -P.platD * k], [-P.platW * k, 0], [0, P.platD * k]].forEach(([u, v], i) => { const [x, z] = fromUV(u, v); i ? shape.lineTo(x, -z) : shape.moveTo(x, -z); });
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: Math.max(0.005, h - 2 * b), bevelEnabled: b > 0.002, bevelThickness: b, bevelSize: b, bevelSegments: 2, curveSegments: 1 });
+    geo.rotateX(-Math.PI / 2); geo.translate(0, yTop - h + b, 0);
+    return geo;
+  };
+  const depth = Math.max(0.05, P.thick - MAT_H), y0 = -MAT_H;
+  const set = (mesh, geo) => { if (mesh.geometry) mesh.geometry.dispose(); mesh.geometry = geo; mesh.visible = true; };
+  if (depth < 0.12) {                                           // 平台調得很薄：只做一層木框
+    set(slab, layer(0, y0, depth, 0.012)); slabGap.visible = slabBeam.visible = false;
+  } else {
+    const hF = depth * 0.44, hG = depth * 0.2, hB = depth - hF - hG, inG = 0.11, inB = 0.03;
+    set(slab, layer(0, y0, hF, 0.022));                         // 上層木框：和平台邊緣切齊
+    set(slabGap, layer(inG, y0 - hF, hG, 0));                   // 中間：內縮的暗層（一道陰影線）
+    // 底樑 + 沿著四條邊排列、從暗層伸出來的樑頭
+    const beam = layer(inB, y0 - hF - hG, hB, 0.018), parts = [beam.index ? beam.toNonIndexed() : beam];
+    const corners = [[P.platW, 0], [0, -P.platD], [-P.platW, 0], [0, P.platD]].map(([u, v]) => fromUV(u, v));
+    for (let e = 0; e < 4; e++) {
+      const [x1, z1] = corners[e], [x2, z2] = corners[(e + 1) % 4], L = Math.hypot(x2 - x1, z2 - z1), n = Math.max(3, Math.round(L / 1.15));
+      const dx = (x2 - x1) / L, dz = (z2 - z1) / L, mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, ml = Math.hypot(mx, mz) || 1, nx = mx / ml, nz = mz / ml;   // 邊的方向、往外的方向
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) / n, bw = 0.2, bd = inG - 0.012, bh = hG * 0.82;
+        const g = new THREE.BoxGeometry(bw, bh, bd);
+        g.rotateY(Math.atan2(dx, dz) + Math.PI / 2);
+        g.translate(x1 + (x2 - x1) * t - nx * (bd / 2 + 0.014) * 1.0, y0 - hF - hG / 2, z1 + (z2 - z1) * t - nz * (bd / 2 + 0.014) * 1.0);
+        parts.push(g.toNonIndexed());
+      }
+    }
+    let tot = 0; for (const g of parts) tot += g.attributes.position.count;
+    const P3 = new Float32Array(tot * 3), N3 = new Float32Array(tot * 3), U2 = new Float32Array(tot * 2); let o = 0;
+    for (const g of parts) { P3.set(g.attributes.position.array, o * 3); N3.set(g.attributes.normal.array, o * 3); U2.set(g.attributes.uv.array, o * 2); o += g.attributes.position.count; }
+    const mg = new THREE.BufferGeometry();
+    mg.setAttribute('position', new THREE.BufferAttribute(P3, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(N3, 3)); mg.setAttribute('uv', new THREE.BufferAttribute(U2, 2));
+    set(slabBeam, mg);
+  }
   buildMats();
 }
 buildSlab();
@@ -1283,7 +1593,8 @@ function puff(x, y, z, o = {}) {
     m.scale.z *= o.stretch;
   }
   platform.add(m);
-  fx.push({ m, drag: o.drag ?? 0, life: o.life ?? 0.25, max: o.life ?? 0.25, grow: o.grow ?? 2, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, op: o.opacity ?? 0.9 });
+  if (o.add) glowFx++;
+  fx.push({ m, glow: !!o.add, drag: o.drag ?? 0, life: o.life ?? 0.25, max: o.life ?? 0.25, grow: o.grow ?? 2, vx: o.vx ?? 0, vy: o.vy ?? 0, vz: o.vz ?? 0, op: o.opacity ?? 0.9 });
 }
 function spark(x, y, z, power, color = 0xfff2c0) {
   puff(x, y, z, { color, size: 0.2 + power * 0.03, life: 0.16, grow: 9 });
@@ -1302,7 +1613,8 @@ function ring(x, y, z, o = {}) {
   m.position.set(x, y, z); m.quaternion.copy(camera.quaternion);
   m.scale.setScalar(o.size ?? 0.2);
   platform.add(m);
-  fx.push({ m, pool: ringPool, drag: 0, life: o.life ?? 0.2, max: o.life ?? 0.2, grow: o.grow ?? 12, vx: 0, vy: 0, vz: 0, op: o.opacity ?? 0.8 });
+  glowFx++;
+  fx.push({ m, glow: true, pool: ringPool, drag: 0, life: o.life ?? 0.2, max: o.life ?? 0.2, grow: o.grow ?? 12, vx: 0, vy: 0, vz: 0, op: o.opacity ?? 0.8 });
 }
 // 命中特效：打在接觸點上。白色閃光 + 衝擊環 + 順著擊飛方向噴出的光條；力道越大越誇張
 function impactFx(x, y, z, dirx, dirz, kb, color = 0xffe2a0) {
@@ -1324,7 +1636,7 @@ function stepFx(dt) {
   for (let i = fx.length - 1; i >= 0; i--) {
     const p = fx[i];
     p.life -= dt;
-    if (p.life <= 0) { platform.remove(p.m); (p.pool || fxPool).push(p.m); fx.splice(i, 1); continue; }
+    if (p.life <= 0) { if (p.glow) glowFx = Math.max(0, glowFx - 1); platform.remove(p.m); (p.pool || fxPool).push(p.m); fx.splice(i, 1); continue; }
     if (p.drag) { const k = Math.max(0, 1 - p.drag * dt); p.vx *= k; p.vy *= k; p.vz *= k; }
     p.m.position.x += p.vx * dt; p.m.position.y += p.vy * dt; p.m.position.z += p.vz * dt;
     p.m.scale.multiplyScalar(Math.max(0.01, 1 + p.grow * dt));
@@ -3561,9 +3873,14 @@ for (const [title, items] of GROUPS) {
     input.addEventListener('input', () => {
       P[k] = +input.value; refreshLabels();
       if (k === 'platW' || k === 'platD' || k === 'thick' || k === 'bearPerEdge') { buildSlab(); buildBearers(); }
+      if (k === 'heriH' || k === 'matWave' || k === 'tatamiMess' || k === 'matDamage') buildMats();
+      if (k === 'tatamiWear' || k === 'tatamiMess') { clearTimeout(wearTimer); wearTimer = setTimeout(() => { loadTatami(); if (heriMat.map) heriMat.map.dispose(); heriMat.map = makeHeriTex(); heriMat.needsUpdate = true; }, 200); }   // 貼圖要重新算，拉滑桿停下來才更新
       if (k === 'brightness') applyLighting();
       if (k === 'camDist') resize();
-      if (k === 'resScale') { autoRes.cur = null; renderer.setPixelRatio(Math.min(devicePixelRatio, P.resScale)); resize(); }
+      if (k === 'resScale') {                // 自己動手調解析度：照你調的，不再自動往下降（要恢復自動，把下面那條滑桿拉回 1）
+        P.autoRes = 0; if (inputs.autoRes) inputs.autoRes.value = 0; refreshLabels();
+        autoRes.cur = null; renderer.setPixelRatio(targetPR()); resize();
+      }
     });
     input.addEventListener('keydown', e => e.preventDefault());
     input.addEventListener('pointerup', () => input.blur());
@@ -3586,7 +3903,7 @@ function refreshLabels() { for (const k in valueEls) valueEls[k].textContent = P
 document.getElementById('resetParams').addEventListener('click', e => {
   Object.assign(P, DEFAULTS);
   for (const k in inputs) inputs[k].value = P[k];
-  refreshLabels(); buildSlab(); buildBearers(); applyLighting(); resize(); e.target.blur();
+  refreshLabels(); buildSlab(); buildBearers(); applyLighting(); resize(); loadTatami(); if (heriMat.map) heriMat.map.dispose(); heriMat.map = makeHeriTex(); e.target.blur();
 });
 refreshLabels();
 
@@ -3771,10 +4088,11 @@ function updateFps(now) {
 // 自動解析度：連續卡頓（平均低於約 51 FPS）就把解析度降一階，順了一陣子再慢慢調回設定值；不會超過面板設定的解析度
 const autoRes = { cur: null, t: 0, n: 0, good: 0, lock: 0 };
 function stepAutoRes(ms, now) {
-  const target = Math.min(devicePixelRatio, P.resScale);
+  const target = targetPR();
   if (!(P.autoRes > 0.5)) { if (autoRes.cur !== null) { autoRes.cur = null; renderer.setPixelRatio(target); resize(); } return; }
   if (autoRes.cur === null || autoRes.cur > target) autoRes.cur = target;
   if (ms > 120 || paused || document.hidden || !loadDone.shown) { autoRes.t = 0; autoRes.n = 0; return; }   // 切換分頁、暫停、載入中：不算
+  if (postActive) return;                  // 命中特效那幾格走後製、本來就比較慢：不算，免得打一套連段解析度就被降下來
   autoRes.t += ms; autoRes.n++;
   if (autoRes.t < 1000) return;
   const avg = autoRes.t / autoRes.n; autoRes.t = 0; autoRes.n = 0;
@@ -3784,6 +4102,25 @@ function stepAutoRes(ms, now) {
   else autoRes.good = 0;
   if (Math.abs(next - autoRes.cur) > 1e-3) { autoRes.cur = next; renderer.setPixelRatio(next); resize(); }
 }
+// ---- 平台預覽模式：只看平台，可以自己轉、縮放、平移；調整面板的滑桿照常可用 ----
+const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'platform';
+let orbit = null;
+function stepPlatformView() {
+  if (!orbit) {
+    document.body.classList.add('viewonly');
+    camera.fov = 35; camera.near = 0.05; camera.updateProjectionMatrix(); camera.position.set(15, 14, 26);
+    orbit = new OrbitControls(camera, renderer.domElement);
+    orbit.enableDamping = true; orbit.dampingFactor = 0.12; orbit.target.set(0, -0.1, 0); orbit.minDistance = 0.6; orbit.maxDistance = 70; orbit.zoomSpeed = 11.5; orbit.zoomToCursor = true;   // 縮放快一點，而且往滑鼠指的地方拉近
+    scene.fog.near = 300; scene.fog.far = 600;               // 預覽時不要霧，拉遠也看得清楚
+  }
+  for (const o of scene.children) if (!o.isLight && o !== platform && o !== spot.target) o.visible = false;   // 抬轎的人、特效都不顯示
+  for (const f of fighters) f.mesh.visible = false;
+  platform.rotation.set(0, 0, 0); platform.position.y = 0;
+  orbit.update();
+}
+{ const self = location.pathname.split('/').pop() || 'index.html';
+  document.getElementById('viewBack').href = self;
+  document.getElementById('viewBtn').addEventListener('click', () => { location.href = self + '?view=platform'; }); }
 function frame(now) {
   stepAutoRes(now - fpsStat.last, now);
   updateFps(now);
@@ -3797,9 +4134,10 @@ function frame(now) {
       loadDone.shown = true;
       const el = document.getElementById('loading'); el.style.opacity = 0; setTimeout(() => el.remove(), 600);
       startMatch();
-      if (tutWanted()) beginTutorial();      // 第一次打開：先玩教程
+      if (tutWanted() && !VIEW_ONLY) beginTutorial();      // 第一次打開：先玩教程
     } else { draw(); requestAnimationFrame(frame); return; }
   }
+  if (VIEW_ONLY) { stepPlatformView(); draw(); requestAnimationFrame(frame); return; }
   if (paused) { draw(); requestAnimationFrame(frame); return; }
 
   if (!Number.isFinite(hitStop)) hitStop = 0;
