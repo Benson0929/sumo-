@@ -22,10 +22,11 @@
   .ctrl { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 18px 0 10px; }
   .ctrl label { font-weight: 600; }
   .ctrl input[type=range] { flex: 1 1 220px; accent-color: var(--red); }
-  .cells { display: flex; gap: 3px; }
-  .cells i { width: 14px; height: 14px; border-radius: 2px; background: #232c3d; }
-  .cells i.on { background: var(--red); }
-  .ctrl .val { min-width: 90px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .cells { display: grid; grid-template-columns: repeat(12, 11px); gap: 3px; }
+  .cells i { width: 11px; height: 12px; border-radius: 2px; border: 1px solid #55607a; box-sizing: border-box; transform: skewX(-12deg); }
+  .cells i.on { background: #f5b544; border-color: #f5b544; }
+  .cells i.on.full { background: #f0643a; border-color: #f0643a; }
+  .ctrl .val { min-width: 100px; color: var(--dim); font-variant-numeric: tabular-nums; }
   .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--dim); font-size: 12.5px; margin: 0 2px 10px; }
   .legend b { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
   .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
@@ -54,6 +55,25 @@
   .notes li { margin: 5px 0; }
   .notes b { color: var(--text); }
   .src { color: var(--dim); font-size: 12px; margin-top: 26px; }
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; margin: 10px 0 4px; }
+  .rule { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .rule b { display: block; font-size: 22px; font-weight: 800; }
+  .rule span { color: var(--dim); font-size: 13px; }
+  .ko { border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; }
+  .ko table { min-width: 860px; }
+  .ko td { vertical-align: top; text-align: left; white-space: normal; }
+  .ko td.name { white-space: nowrap; }
+  .strip { display: grid; grid-template-columns: repeat(12, 15px); gap: 3px; }
+  .strip i { width: 15px; height: 13px; border-radius: 2px; box-sizing: border-box; border: 1px solid #3a4560; transform: skewX(-12deg); }
+  .strip i.l { background: #e8d24a; border-color: #e8d24a; }
+  .strip i.o { border-color: transparent; }
+  .strip i.K { background: #e23a3a; border-color: #e23a3a; }
+  .strip i.k { background: #8f1f2a; border-color: #8f1f2a; }
+  .strip i.cur { outline: 2px solid #fff; outline-offset: 1px; }
+  .sum { color: var(--dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+  .sum b { color: #c5cddc; font-weight: 600; }
+  .lg2 i { display: inline-block; width: 13px; height: 11px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; border: 1px solid #3a4560; box-sizing: border-box; }
+  .note { color: var(--dim); font-size: 12.5px; margin: 8px 2px 0; }
   .embed #play, .embed #lang { display: none; }
   .embed .btns { min-width: 44px; }
 </style>
@@ -73,7 +93,7 @@
 
   <div class="ctrl">
     <label for="pct" data-t="gauge"></label>
-    <input type="range" id="pct" min="0" max="10" step="1" value="0">
+    <input type="range" id="pct" min="0" max="36" step="1" value="0">
     <div class="cells" id="cells"></div>
     <div class="val" id="pctVal"></div>
   </div>
@@ -90,6 +110,17 @@
     <tbody id="rows"></tbody>
   </table></div>
 
+  <h2 data-t="gaugeT"></h2>
+  <div class="rules" id="gaugeRules"></div>
+
+  <h2 data-t="koT"></h2>
+  <div class="legend lg2" id="koLegend"></div>
+  <div class="ko"><table><thead><tr id="koHead"></tr></thead><tbody id="koRows"></tbody></table></div>
+  <div class="note" data-t="koNote"></div>
+
+  <h2 data-t="offT"></h2>
+  <div class="rules" id="offRules"></div>
+
   <h2 data-t="howT"></h2>
   <ul class="notes" id="how"></ul>
   <h2 data-t="findT"></h2>
@@ -100,30 +131,37 @@
 <script>
 // 遊戲數值的備份（讀不到遊戲檔案時使用）。正常情況會直接從遊戲檔案讀取最新的 MOVES。
 const FALLBACK = {
-  jab1:   { startup: .06, active: .07, recovery: .15, whiff: .25, hs: .10, dmg: 4, bkb: 2.2, kbg: .010, angle: 15, reach: 1.45 },
-  jab2:   { startup: .12, active: .07, recovery: .15, whiff: .25, hs: .10, dmg: 4, bkb: 2.2, kbg: .010, angle: 15, reach: 1.45 },
-  jab3:   { startup: .16, active: .09, recovery: .28, whiff: .40, dmg: 7, bkb: 5.5, kbg: .03, angle: 35, reach: 1.6 },
-  dash:   { startup: .08, active: .16, recovery: .32, whiff: .45, dmg: 6, bkb: 7.5, kbg: .03, angle: 28, reach: 1.35 },
-  strong: { startup: .16, active: .10, recovery: .30, whiff: .40, dmg: 11, dmgMax: 17, bkb: 4.5, kbg: .13, kbgMax: .16, angle: 38, reach: 1.2, chargeMax: 1.0 },
-  air:    { startup: .07, active: .22, recovery: .16, dmg: 7, bkb: 5, kbg: .05, angle: 38, reach: 1.35 },
-  slam:   { startup: .20, active: 9, recovery: .36, dmg: 12, bkb: 7.5, kbg: .09, angle: 65, reach: 1.3 },
-  getupAtk: { startup: .03, active: .12, recovery: .30, dmg: 7, bkb: 8.5, kbg: .03, angle: 32, reach: 1.8 },
-  upSpec: { startup: .05, active: .32, recovery: .12, dmg: 6, bkb: 6, kbg: .05, angle: 72, reach: 1.2 },
+  jab1:   { startup: .06, active: .07, recovery: .12, whiff: .25, hs: .25, dmg: 4, bkb: 2.2, kbg: .00667, angle: 15, reach: 1.45 },
+  jab2:   { startup: .10, active: .07, recovery: .12, whiff: .25, hs: .28, dmg: 4, bkb: 2.2, kbg: .00667, angle: 15, reach: 1.45 },
+  jab3:   { startup: .13, active: .09, recovery: .28, whiff: .40, dmg: 7, bkb: 5.5, kbg: .02, rowKB: [0, 5, 12], angle: 35, reach: 1.6 },
+  dash:   { startup: .08, active: .16, recovery: .32, whiff: .45, dmg: 6, bkb: 7.5, kbg: .02, rowKB: [0, 5, 11], angle: 28, reach: 1.35 },
+  strong: { startup: .25, active: .10, recovery: .30, whiff: .50, dmg: 11, dmgMax: 17, bkb: 4.5, kbg: .03667, kbgMax: .04333, angle: 38, rowKB: [0, 13, 19], rowKBCharge: [0, 0, 3.5], reach: 1.2, chargeMax: 1.75, armorAt: 0.25 },
+  air:    { startup: .07, active: .22, recovery: .16, dmg: 7, bkb: 5, kbg: .03333, rowKB: [0, 5, 11], angle: 38, reach: 1.35 },
+  slam:   { startup: .20, active: 9, recovery: .36, dmg: 12, bkb: 7.5, kbg: .06, rowKB: [0, 7, 13], angle: 65, reach: 1.3 },
+  getupAtk: { startup: .03, active: .12, recovery: .30, dmg: 7, bkb: 8.5, kbg: .02, rowKB: [0, 4, 8], angle: 32, reach: 1.8 },
+  upSpec: { startup: .05, active: .32, recovery: .12, dmg: 6, bkb: 6, kbg: .03333, rowKB: [0, 4, 9], angle: 72, reach: 1.2 },
 };
-const FPS = 60, GAUGE_STEP = 15;
+// 擊飛結果：用遊戲本身的物理模擬出來的（2026-11-17；平台水平、往最近的邊打、被打的人由 CPU 操作救援）
+//   每個字 = 對手量表 0～36 格時的結果：s 留在平台、l 掛邊、o 飛出平台（回得來）、K 直接出局；f = 飛出邊緣的最遠距離
+//   c = 在平台中央被打、e = 在邊緣（離邊 1.5）被打。改了招式或物理數值後要重新模擬，這一段不會自動更新
+const KO = {"jab1":{"c":"sssssssssssssssssssssssssssssssssssss","cf":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0","e":"sssssssssssssssssssssssssssssssssssss","ef":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"},"jab3":{"c":"ssssssssssssssssssssssssooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,9,9,9,10,10,10,10,10,10,10,10,10","e":"ssssssllllllooooooooooooooooooooooooo","ef":"0,0,0,0,0,0,1,0,0,0,0,0,6,6,6,7,7,7,7,7,7,7,7,7,14,14,14,15,15,15,15,15,15,15,16,16,16"},"dash":{"c":"ssssssssssssssssssllllllooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,11,11,12,12,12,12,12,12,12,13,13,13,13","e":"llllllllloooooooooooooooooooooooooooo","ef":"1,1,1,1,1,1,1,1,1,2,2,2,9,9,9,9,9,9,9,9,10,10,10,10,16,17,17,17,17,17,17,17,18,18,18,18,18"},"strong":{"c":"ssssssssssssooooooooooooooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,9,9,9,9,10,10,10,10,10,11,11,11,18,18,19,19,19,20,20,20,20,21,21,21,21","e":"ssssssllllllooooooooooooooooooooooooo","ef":"0,0,0,0,0,0,0,0,0,1,1,1,14,14,14,14,15,15,15,15,16,16,16,16,22,22,22,22,22,22,22,22,22,22,22,22,22"},"strongFull":{"c":"ssssssssssssooooooooooooooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,10,10,10,10,11,11,11,12,12,12,12,13,22,22,22,22,22,22,22,22,22,22,22,22,22","e":"ssssllllllllooooooooooooKKKKKKKKKKKKK","ef":"0,0,0,0,0,0,1,1,1,1,1,1,15,15,15,16,16,16,16,17,17,17,18,18,22,22,22,22,22,22,22,22,22,22,22,22,22"},"air":{"c":"ssssssssssssssssssssslllooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,9,9,9,10,10,10,10,10,11,11,11,11,11","e":"ssssssllllllooooooooooooooooooooooooo","ef":"0,0,0,0,0,0,0,0,0,1,1,1,6,7,7,7,7,7,7,8,8,8,8,8,14,14,15,15,15,15,15,16,16,16,16,16,16"},"slam":{"c":"ssssssssssssllllooooooooooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,3,3,3,3,3,7,7,8,8,8,8,9,9,9,9,9,9,9","e":"llllllllooooooooooooooooooooooooooooo","ef":"0,0,1,1,1,1,1,1,2,2,2,2,6,7,7,7,7,7,8,8,8,8,8,9,12,13,13,13,13,14,14,14,14,15,15,15,15"},"upSpec":{"c":"sssssssssssssssssssssssssssssssssssss","cf":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0","e":"ssssssssssssllllloooooooooooooooooooo","ef":"0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,2,2,2,2,2,2,2,4,4,4,5,5,5,5,5,5,5,5,5,5"},"getupAtk":{"c":"ssssssssssssssssslllllllooooooooooooo","cf":"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,8,9,9,9,9,9,9,9,10,10,10,10,10","e":"ooooooooooooooooooooooooooooooooooooo","ef":"2,2,2,2,2,2,3,3,3,4,4,4,8,8,8,9,9,9,9,9,9,9,9,9,14,14,14,14,14,14,14,15,15,15,15,15,15"}};
+KO.jab2 = KO.jab1;
+// 量表與場外的規則（和遊戲裡的設定一致）
+const RULES = { rest: 6, decay: 1.5, blastSide: 22, blastUp: 34, blastDown: 12, offAir: 1.5, fallOn: 13, fallOff: 9, camDist: 4, ledgeWait: 3 };
+const FPS = 60, GAUGE_STEP = 6, GAUGE_COLS = 12, GAUGE_CELLS = 36;   // 和遊戲的量表一致：3 欄 × 12 格，每格 6 點
 
 // 表格裡的每一列：id = 遊戲裡的招式；full = 蓄滿版本
 const ROWS = [
-  { id: 'jab1',   zh: ['輕拳・一段', 'D'],                    en: ['Jab 1', 'D'] },
-  { id: 'jab2',   zh: ['輕拳・二段', 'D › D'],                en: ['Jab 2', 'D › D'] },
-  { id: 'jab3',   zh: ['輕拳・三段', 'D › D › D'],            en: ['Jab 3', 'D › D › D'] },
-  { id: 'dash',   zh: ['突進', '方向鍵快按兩下 + D'],          en: ['Dash', 'Double-tap arrow + D'] },
-  { id: 'strong', zh: ['重擊', 'A'],                          en: ['Heavy', 'A'] },
-  { id: 'strong', full: true, zh: ['重擊（蓄滿）', '按住 A'],  en: ['Heavy (full charge)', 'Hold A'], tag: { zh: '蓄力過半有霸體', en: 'Armor past half charge' } },
-  { id: 'air',    zh: ['空中迴旋踢', '空中 D'],                en: ['Air Spin Kick', 'D in air'] },
-  { id: 'slam',   zh: ['下墜重擊', '空中 A'],                  en: ['Slam', 'A in air'] },
-  { id: 'upSpec', zh: ['上升技', '空中 W'],                    en: ['Rising Special', 'W in air'] },
-  { id: 'getupAtk', zh: ['爬起攻擊', '掛邊時 D'],              en: ['Ledge Attack', 'D on ledge'] },
+  { id: 'jab1',   zh: ['輕拳・一段', 'J'],                    en: ['Jab 1', 'J'] },
+  { id: 'jab2',   zh: ['輕拳・二段', 'J › J'],                en: ['Jab 2', 'J › J'] },
+  { id: 'jab3',   zh: ['輕拳・三段', 'J › J › J'],            en: ['Jab 3', 'J › J › J'] },
+  { id: 'dash',   zh: ['突進', 'W A S D 快按兩下 + J'],        en: ['Dash', 'Double-tap W A S D + J'] },
+  { id: 'strong', zh: ['重擊', 'L'],                          en: ['Heavy', 'L'] },
+  { id: 'strong', full: true, zh: ['重擊（蓄滿）', '按住 L'],  en: ['Heavy (full charge)', 'Hold L'], armor: true },
+  { id: 'air',    zh: ['空中迴旋踢', '空中 J'],                en: ['Air Spin Kick', 'J in air'] },
+  { id: 'slam',   zh: ['下墜重擊', '空中 L'],                  en: ['Slam', 'L in air'] },
+  { id: 'upSpec', zh: ['上升技', '空中 空白鍵'],               en: ['Rising Special', 'Space in air'] },
+  { id: 'getupAtk', zh: ['爬起攻擊', '掛邊時 J'],              en: ['Ledge Attack', 'J on ledge'] },
 ];
 
 const T = {
@@ -133,13 +171,25 @@ const T = {
     lgSu: '發生', lgAc: '持續（打得到人）', lgRe: '收招', lgWh: '打空時多出的收招', lgCh: '蓄力（最多）',
     head: [['招式', '按鍵'], ['發生', '幀'], ['持續', '幀'], ['收招', '命中／打空'], ['幀條', ''], ['命中優勢', '幀'], ['傷害', ''], ['擊飛力道', '目前量表'], ['角度', ''], ['距離', '']],
     toLand: '到落地', hitstun: n => `對手硬直 ${n}`, approx: '約',
+    gaugeT: '量表', koT: '擊飛結果', offT: '場外與出界',
+    gaugeRules: [['3 × 12', '三欄，每欄 12 格，共 36 格'], [`${GAUGE_STEP} 點`, '每受到這麼多傷害亮一格'], [`${RULES.rest} 秒`, '沒被打中這麼久之後，量表開始減少'],
+      [`${RULES.decay} 秒／格`, '減少的速度'], ['集滿演出', '一欄集滿的瞬間觸發：那一擊不擊飛，被打的人定在原地、只能被動，進攻方自動貼近，鏡頭貼近並繞一圈。對手在空中被打滿時直接在空中進行，兩人停在同一個高度'], ['4 秒／12 下', '進攻方在時間內按滿 12 下 J 或 L，該欄就成立。前 11 下是一整段連段，每按一下打出一拳（按下後約 5 幀拳頭到位，才算打到）；第 12 下是特寫終結技，先蓄力約 25 幀再打出去，那一欄變紅、鎖定並把人打飛。12 下都按到之後，即使時間到也會把剩下的拳打完。每按一下，量表上那一欄就有一格變紅'],
+      ['退回 6 格', '時間到沒按滿：那一欄退回一半，被打的人恢復行動並短暫無敵'], ['跨欄加成', '對手每成立一欄（變紅），除了輕拳一、二段以外的招式擊飛力道跳一級']],
+    koHead: ['招式', '在平台中央被打', '在邊緣被打'],
+    koLegend: { s: '留在平台', l: '掛邊', o: '飛出平台（顏色越深飛越遠）', k: '飛到出界線邊緣，幾乎出局', K: '直接出局' },
+    koWord: { s: '留在平台', l: '掛邊', o: '飛出', k: '幾乎出局', K: '出局' }, koRow: ['第一欄', '成立一欄', '成立兩欄'], koCur: '白框 = 上方滑桿目前的格數',
+    koNote: '每一格代表對手的量表有幾格時被這招打中的結果，排列方式和遊戲裡的量表相同。「飛出」後面的數字是飛離平台邊緣的最遠距離。這是用遊戲的物理模擬出來的：平台水平、往最近的邊打、被打的人由 CPU 操作救援、沒有對手攔截；實戰中飛出去後會被攔截，出局會比這裡多。這一段不會自動更新，改了招式數值後需要重新模擬。目前的結果是在集滿演出改版之前模擬的；之後招式的擊飛數值沒有變動，所以仍然適用。',
+    offRules: [[`${RULES.blastSide}`, '水平出界線：離平台邊緣這麼遠就直接出局'], [`${RULES.blastUp} ／ ${RULES.blastDown}`, '往上／往下的出界線'], [`× ${RULES.offAir}`, '人在場外空中時的水平移動速度（硬直結束後）'],
+      [`${RULES.fallOff}（場內 ${RULES.fallOn}）`, '場外的最大下墜速度，比場內慢，有更多時間飛回來'], ['W A S D + 上升技', '回場的方法；被打飛後一定有一次上升技可用'], [`${RULES.ledgeWait} 秒`, '抓到邊緣後要掛這麼久才能爬上來，期間可以被震下去'],
+      [`${RULES.camDist}`, '被打飛到離邊緣這麼遠，鏡頭轉成側面平視']],
     howT: '怎麼看這張表',
     how: [
       '<b>發生：</b>按下按鍵到打得到人之前的幀數。數字越小，出手越快。',
       '<b>持續：</b>攻擊判定存在的幀數。越長越容易打中。',
       '<b>收招：</b>判定結束到能再行動的幀數。打空時收招更久，破綻更大。',
       '<b>命中優勢：</b>打中之後，對手恢復行動的時間減去自己恢復行動的時間。正數代表你先能動；負數代表對手先能動。以判定第一幀打中來計算。',
-      '<b>擊飛力道：</b>基礎力道 + 成長 × 對手量表。拉上面的滑桿，可以看到量表越高、飛得越遠、硬直越久。',
+      '<b>打擊停格：</b>打中的瞬間雙方會短暫停住，越重的招式停越久（輕拳約 5 幀，重擊約 9 幀，蓄滿約 12 幀，上限 13 幀）。停格期間雙方都不能動，所以不影響表上的幀數和命中優勢。',
+      '<b>擊飛力道：</b>基礎力道 + 成長 × 對手量表。拉上面的滑桿，可以看到量表越高、飛得越遠、硬直越久。對手每集滿一欄（12 格），除了輕拳一、二段以外的招式力道都會額外跳一級。',
     ],
     findT: '這張表目前透露的事',
     src: (live, file) => live ? `數值來源：直接讀取遊戲${file ? '檔案 ' + file : '目前的數值'}，改了遊戲數值這裡會自動更新。` : '數值來源：內建備份（讀不到遊戲檔案）。',
@@ -150,13 +200,25 @@ const T = {
     lgSu: 'Start-up', lgAc: 'Active (can hit)', lgRe: 'Recovery', lgWh: 'Extra recovery on whiff', lgCh: 'Charge (max)',
     head: [['Move', 'Input'], ['Start-up', 'frames'], ['Active', 'frames'], ['Recovery', 'hit / whiff'], ['Frame bar', ''], ['On hit', 'frames'], ['Damage', ''], ['Knockback', 'at this gauge'], ['Angle', ''], ['Reach', '']],
     toLand: 'until landing', hitstun: n => `hitstun ${n}`, approx: '~',
+    gaugeT: 'Gauge', koT: 'Launch results', offT: 'Off-stage and blast lines',
+    gaugeRules: [['3 × 12', 'Three rows of 12 cells, 36 in total'], [`${GAUGE_STEP} pts`, 'Damage needed to light one cell'], [`${RULES.rest} s`, 'Time without being hit before the gauge starts to drain'],
+      [`${RULES.decay} s / cell`, 'Drain speed'], ['Row finisher', 'Triggers the moment a row fills: that hit does not launch, the victim is frozen and can only watch, the attacker closes in automatically, and the camera moves in and circles once. If the victim is airborne it happens in mid-air, both fighters hovering at the same height'], ['4 s / 12 presses', 'The attacker presses J or L 12 times in time to confirm the row. The first 11 presses drive one continuous combo, one punch per press (the fist lands about 5 frames after the press, and that is when it counts); the 12th is a close-up finisher that winds up for about 25 frames, then the row turns red, locks, and the victim is launched. Once all 12 presses are in, the remaining punches play out even if time runs out. Each press turns one cell of that row red'],
+      ['Back to 6 cells', 'If time runs out the row drops to half and the victim recovers with brief invincibility'], ['Row bonus', 'Each confirmed (red) row gives every move except Jab 1 and Jab 2 an extra step of knockback']],
+    koHead: ['Move', 'Hit at centre stage', 'Hit near the edge'],
+    koLegend: { s: 'Stays on stage', l: 'Ledge hang', o: 'Launched off stage (darker = farther)', k: 'Reaches the blast line, near KO', K: 'Instant KO' },
+    koWord: { s: 'stays', l: 'ledge', o: 'launched', k: 'near KO', K: 'KO' }, koRow: ['Row 1', '1 row confirmed', '2 rows confirmed'], koCur: 'White outline = the slider above',
+    koNote: 'Each cell shows what happens when the opponent has that many gauge cells and is hit by the move; the layout matches the in-game gauge. The number after "launched" is the farthest distance past the edge. Simulated with the game\'s own physics: level stage, hit toward the nearest edge, the victim recovering under CPU control, nobody edge-guarding; real matches produce more KOs. This section does not update automatically and must be re-simulated after balance changes. These results were simulated before the row finisher was reworked; the knockback values of the moves have not changed since, so they still apply.',
+    offRules: [[`${RULES.blastSide}`, 'Side blast line: this far past the edge is an instant KO'], [`${RULES.blastUp} / ${RULES.blastDown}`, 'Upper / lower blast lines'], [`× ${RULES.offAir}`, 'Horizontal air speed while off stage (after hitstun)'],
+      [`${RULES.fallOff} (on stage ${RULES.fallOn})`, 'Max fall speed off stage; slower than on stage, leaving more time to return'], ['Direction + Rising Special', 'How to recover; a launched fighter always has one Rising Special'], [`${RULES.ledgeWait} s`, 'Hang time before climbing up; you can be shaken off meanwhile'],
+      [`${RULES.camDist}`, 'Launch distance at which the camera swings to the side view']],
     howT: 'How to read this table',
     how: [
       '<b>Start-up:</b> frames between the button press and the first frame that can hit. Lower is faster.',
       '<b>Active:</b> frames the attack can hit. Longer is easier to land.',
       '<b>Recovery:</b> frames after the hit window until you can act again. A whiffed move recovers more slowly.',
       '<b>On hit:</b> the opponent\'s time to act again minus yours. Positive means you move first; negative means they do. Calculated for a hit on the first active frame.',
-      '<b>Knockback:</b> base + growth × opponent gauge. Drag the slider to see how a fuller gauge means more launch and longer hitstun.',
+      '<b>Hit stop:</b> both fighters freeze for a moment on hit, longer for heavier moves (about 5 frames for a jab, 9 for a heavy, 12 fully charged, capped at 13). Neither side can act during it, so the frame counts and on-hit advantage in the table are unaffected.',
+      '<b>Knockback:</b> base + growth × opponent gauge. Drag the slider to see how a fuller gauge means more launch and longer hitstun. Every move except Jab 1 and Jab 2 gains an extra step each time the opponent completes a row of 12.',
     ],
     findT: 'What the table shows right now',
     src: (live, file) => live ? `Source: read live from the game${file ? ' file ' + file : ''}; changing the game's values updates this page.` : 'Source: built-in snapshot (game file could not be read).',
@@ -180,7 +242,9 @@ function calc(row, pct) {
   const d = MOVES[row.id], c = row.full ? 1 : 0;
   const dmg = d.dmgMax ? d.dmg + (d.dmgMax - d.dmg) * c : d.dmg;
   const kbg = d.kbgMax ? d.kbg + (d.kbgMax - d.kbg) * c : d.kbg;
-  const kb = d.bkb + kbg * (pct + dmg);                         // 遊戲裡先加傷害再算擊飛
+  const gRow = Math.min(2, Math.floor(pct / (GAUGE_STEP * GAUGE_COLS)));   // 對手已經集滿幾欄
+  const rowKB = d.rowKB ? d.rowKB[gRow] + (d.rowKBCharge ? d.rowKBCharge[gRow] * c : 0) : 0;   // 重擊的跨欄加成
+  const kb = d.bkb + kbg * (pct + dmg) + rowKB;                 // 遊戲裡先加傷害再算擊飛
   const stun = fr(d.hs ?? Math.min(1.6, 0.1 + kb * 0.035));
   const toLand = row.id === 'slam';
   const su = fr(d.startup), ac = toLand ? 0 : fr(d.active), re = fr(d.recovery), wh = d.whiff ? fr(d.whiff) : re;
@@ -195,13 +259,14 @@ function render() {
   document.querySelectorAll('[data-t]').forEach(e => { e.textContent = t[e.dataset.t]; });
   $('lang').textContent = t.langBtn;
   $('pctVal').textContent = t.cellsUnit(cellsN);
-  $('cells').innerHTML = Array.from({ length: 10 }, (_, i) => `<i class="${i < cellsN ? 'on' : ''}"></i>`).join('');
+  $('cells').innerHTML = Array.from({ length: GAUGE_CELLS }, (_, i) => `<i class="${i < cellsN ? 'on' : ''}${i < Math.floor(cellsN / GAUGE_COLS) * GAUGE_COLS ? ' full' : ''}"></i>`).join('');
   $('head').innerHTML = t.head.map(([a, b]) => `<th>${a}${b ? `<small>${b}</small>` : ''}</th>`).join('');
 
-  const PX = 2.6;
+  const PX = 2;
   $('rows').innerHTML = ROWS.filter(r => MOVES[r.id]).map(r => {
     const m = calc(r, pct), [name, key] = r[LANG];
-    const tag = r.tag ? `<span class="tag">${r.tag[LANG]}</span>` : '';
+    const at = MOVES[r.id].armorAt;
+    const tag = r.armor && at ? `<span class="tag">${LANG === 'zh' ? `按住 ${at} 秒後有霸體` : `Armor after holding ${at}s`}</span>` : '';
     const seg = (cls, n) => n > 0 ? `<i class="${cls}" style="width:${n * PX}px" title="${n}"></i>` : '';
     const bar = `<div class="bar" style="width:${(m.su + m.ch + (m.toLand ? 14 : m.ac) + m.wh) * PX}px">` +
       seg('su', m.su) + seg('ch', m.ch) + seg('ac', m.toLand ? 14 : m.ac) + seg('re', m.re) + seg('wh', m.wh - m.re) + '</div>';
@@ -220,9 +285,37 @@ function render() {
     </tr>`;
   }).join('');
 
+  const cards = a => a.map(([v, d]) => `<div class="rule"><b>${v}</b><span>${d}</span></div>`).join('');
+  $('gaugeRules').innerHTML = cards(t.gaugeRules);
+  $('offRules').innerHTML = cards(t.offRules);
+  renderKO(t, cellsN);
   $('how').innerHTML = t.how.map(s => `<li>${s}</li>`).join('');
   $('find').innerHTML = findings(pct).map(s => `<li>${s}</li>`).join('');
   $('src').textContent = t.src(live, srcFile);
+}
+
+// 擊飛結果：每招兩組 36 格（中央／邊緣），顏色 = 結果；下面一行文字是三欄各自的摘要
+const farColor = f => `hsl(${28 - Math.min(1, f / 22) * 18} 90% ${68 - Math.min(1, f / 22) * 26}%)`;
+function renderKO(t, cur) {
+  $('koLegend').innerHTML = ['s', 'l', 'o', 'k', 'K'].map(k => `<span><i style="${k === 'l' ? 'background:#e8d24a;border-color:#e8d24a' : k === 'o' ? 'background:' + farColor(12) + ';border-color:transparent' : k === 'k' ? 'background:#8f1f2a;border-color:#8f1f2a' : k === 'K' ? 'background:#e23a3a;border-color:#e23a3a' : ''}"></i>${t.koLegend[k]}</span>`).join('') + `<span>${t.koCur}</span>`;
+  $('koHead').innerHTML = t.koHead.map(h => `<th style="text-align:left">${h}</th>`).join('');
+  const strip = (res, far) => {
+    const fs = far.split(',').map(Number);
+    res = [...res].map((c, k) => c === 'o' && fs[k] >= RULES.blastSide - 1 ? 'k' : c);   // 飛到出界線邊緣：幾乎出局
+    const cells = Array.from({ length: 36 }, (_, k) => `<i class="${res[k]}${k === Math.min(35, cur) ? ' cur' : ''}" title="${k}: ${t.koWord[res[k]]}${res[k] === 'o' ? ' ' + fs[k] : ''}"${res[k] === 'o' ? ` style="background:${farColor(fs[k])}"` : ''}></i>`).join('');
+    const sum = [0, 12, 24].map((a, i) => {      // 每一欄：出現過的結果依序列出；飛出的附上距離範圍
+      const seen = [];
+      for (let k = a; k < a + 12; k++) if (!seen.includes(res[k])) seen.push(res[k]);
+      const txt = seen.map(c => { if (c !== 'o') return t.koWord[c]; const d = fs.slice(a, a + 12).filter((_, j) => res[a + j] === 'o'); const lo = Math.min(...d), hi = Math.max(...d); return `${t.koWord.o} ${lo === hi ? lo : lo + '–' + hi}`; }).join(' → ');
+      return `<b>${t.koRow[i]}</b> ${txt}`;
+    }).join('<br>');
+    return `<div class="strip">${cells}</div><div class="sum">${sum}</div>`;
+  };
+  $('koRows').innerHTML = ROWS.filter(r => r.id !== 'jab2').map(r => {
+    const d = KO[r.full ? r.id + 'Full' : r.id]; if (!d) return '';
+    const name = r.id === 'jab1' ? (LANG === 'zh' ? '輕拳・一、二段' : 'Jab 1 & 2') : r[LANG][0];
+    return `<tr><td class="name"><div class="n">${name}</div><div class="k">${r.id === 'jab1' ? 'D ／ D › D' : r[LANG][1]}</div></td><td>${strip(d.c, d.cf)}</td><td>${strip(d.e, d.ef)}</td></tr>`;
+  }).join('');
 }
 
 // 從目前數值自動算出的觀察
@@ -235,12 +328,14 @@ function findings(pct) {
     out.push(`<b>輕拳連段不是「必中連段」：</b>第一段打中後對手硬直 ${j1.stun} 幀，但第二段要 ${j1.ac + j1.re + j2.su} 幀後才打得到，中間有 ${gap} 幀的空檔，對手可以翻滾逃開。這是目前刻意的設計；如果想要按到底就全中，需要拉長硬直或縮短收招。`);
     out.push(`<b>風險與回報：</b>重擊發生 ${st.su} 幀、打空要 ${st.ac + st.wh} 幀才能再動，是輕拳一段（${j1.ac + j1.wh} 幀）的 ${((st.ac + st.wh) / (j1.ac + j1.wh)).toFixed(1)} 倍；換來的是高量表時的擊飛力道（目前 ${st.kb.toFixed(1)}，輕拳一段只有 ${j1.kb.toFixed(1)}）。`);
     out.push(`<b>最快的招式：</b>${fastest[0].zh[0]}，發生 ${fastest[1].su} 幀。突進發生 ${da.su} 幀，但打空的破綻有 ${da.ac + da.wh} 幀。`);
+    out.push('<b>集滿演出是獎勵，不是第二場對決：</b>4 秒內按 12 下，平均每秒 3 下就夠，被打的人完全不能反抗，所以把一欄打滿幾乎等於成立。真正的攻防在「誰先把對方的一欄打滿」；量表 6 秒沒被打就會開始減少，所以拉開距離休息是有效的防守。');
     out.push('<b>沒有「被防」欄：</b>防禦和抓技目前在遊戲裡是停用的，所以沒有被防優勢。加回防禦之後，這張表會多一欄。');
     out.push('<b>命中優勢是名目值：</b>SUMO 是把人打飛的遊戲，對手被打中會飛出去，所以正優勢不一定追得上；它主要用來比較各招的回報。');
   } else {
     out.push(`<b>The jab chain is not a true combo:</b> Jab 1 gives ${j1.stun} frames of hitstun, but Jab 2 connects ${j1.ac + j1.re + j2.su} frames later, leaving a ${gap}-frame gap the opponent can roll out of. This is intentional for now; a guaranteed chain would need more hitstun or less recovery.`);
     out.push(`<b>Risk and reward:</b> Heavy starts in ${st.su} frames and a whiff costs ${st.ac + st.wh} frames, ${((st.ac + st.wh) / (j1.ac + j1.wh)).toFixed(1)}× Jab 1 (${j1.ac + j1.wh}); in return it launches far harder at high gauge (${st.kb.toFixed(1)} now, versus ${j1.kb.toFixed(1)} for Jab 1).`);
     out.push(`<b>Fastest move:</b> ${fastest[0].en[0]}, ${fastest[1].su} frames of start-up. Dash starts in ${da.su} frames but a whiff leaves you open for ${da.ac + da.wh}.`);
+    out.push('<b>The row finisher is a reward, not a second contest:</b> 12 presses in 4 seconds is only 3 per second and the victim cannot resist, so filling a row almost always confirms it. The real fight is over who fills a row first; the gauge starts draining after 6 seconds without being hit, so backing off to rest is a valid defence.');
     out.push('<b>No "on block" column:</b> shielding and grabs are currently disabled in the game. The column will be added when defence returns.');
     out.push('<b>On-hit numbers are nominal:</b> SUMO launches the opponent away, so a positive number is not always a follow-up; use it to compare the reward of each move.');
   }
