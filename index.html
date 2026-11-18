@@ -2723,6 +2723,50 @@ function attachModel(f) {
   f.model = { pivot, model, mixer, actions, cur: null, key: '', yawOff: 0, wasGround: true, airSeq: 0 };
   f.rig.body.visible = false;               // 隱藏方塊人
 }
+// ---- 動作打包檔 ----
+// 格式：8 個位元組的標記 + 標頭長度 + 標頭（JSON：每個動作的名稱、長度、有哪些軌道）+ 一長串數值（時間點和每一格的旋轉／位移）
+const PACK_MAGIC = 'SUMOANI1';
+async function loadAnimPack(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const buf = await res.arrayBuffer(), u8 = new Uint8Array(buf);
+  if (new TextDecoder().decode(u8.subarray(0, 8)) !== PACK_MAGIC) throw new Error('不是動作打包檔');
+  const hl = new DataView(buf).getUint32(8, true);
+  const head = JSON.parse(new TextDecoder().decode(u8.subarray(12, 12 + hl)));
+  let off = 12 + Math.ceil(hl / 4) * 4;
+  const take = n => { const a = new Float32Array(buf, off, n); off += n * 4; return a; };
+  const clips = {};
+  for (const c of head.clips) {
+    const times = c.times.map(take);
+    const tracks = c.tracks.map(([name, ti, nv]) => new (/\.quaternion$/.test(name) ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(name, times[ti], take(nv)));
+    clips[c.name] = new THREE.AnimationClip(c.name, c.duration, tracks);
+  }
+  return { clips, extras: head.extras || {} };
+}
+// 開發用：把目前從 FBX 讀進來、處理好的動作做成打包檔（要用 ?nopack=1 開啟遊戲才有資料）
+function makeAnimPack() {
+  if (!rigAssets.packNames) throw new Error('要用 ?nopack=1 開啟才能產生打包檔');
+  const head = { extras: { hipK: rigAssets.hipK, slamT: rigAssets.slamT, strongSource: rigAssets.strongSource }, clips: [] }, data = [];
+  const same = (a, b) => { if (a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false; return true; };
+  for (const name of rigAssets.packNames) {
+    const clip = rigAssets.clips[name]; if (!clip) continue;
+    const uniq = [], entry = { name, duration: clip.duration, times: [], tracks: [] }, vals = [];
+    for (const tr of clip.tracks) {
+      let ti = uniq.findIndex(t => same(t, tr.times));
+      if (ti < 0) { ti = uniq.length; uniq.push(tr.times); }
+      entry.tracks.push([tr.name, ti, tr.values.length]); vals.push(tr.values);
+    }
+    entry.times = uniq.map(t => t.length);
+    data.push(...uniq, ...vals); head.clips.push(entry);
+  }
+  const hb = new TextEncoder().encode(JSON.stringify(head)), pad = Math.ceil(hb.length / 4) * 4;
+  const total = 12 + pad + data.reduce((n, a) => n + a.length * 4, 0);
+  const out = new Uint8Array(total); out.set(new TextEncoder().encode(PACK_MAGIC), 0);
+  new DataView(out.buffer).setUint32(8, hb.length, true); out.set(hb, 12);
+  let off = 12 + pad;
+  for (const a of data) { out.set(new Uint8Array(a.buffer, a.byteOffset, a.length * 4), off); off += a.length * 4; }
+  return out;
+}
 async function loadRig() {
   try {
     const loader = new FBXLoader();
@@ -2738,36 +2782,49 @@ async function loadRig() {
     const clips = {};
     if (base.animations.length) { clips.block = lockRoot(longest(base)); clips.block.name = 'block'; }   // X Bot 檔附帶的 Body Block
     const names = Object.keys(RIG_CLIPS);
-    const res = await Promise.allSettled(names.map(n => loader.loadAsync(`${RIG_CLIPS[n].file}.fbx`)));
-    const raw = {};
-    res.forEach((r, i) => {
-      const n = names[i];
-      if (r.status !== 'fulfilled' || !r.value.animations.length) { rigAssets.missing.push(n); return; }
-      raw[n] = longest(r.value);
-    });
-    if (!raw.idle) throw new Error('缺少待機動作');
-    // 動作檔（X Bot，公分）和角色骨架的單位、腿長可能不同：把髖部位移換算成這個角色的比例
-    {
-      const restHips = base.getObjectByName('mixamorigHips');
-      const idleHp = raw.idle.tracks.find(t => /Hips\.position$/.test(t.name));
-      const k = restHips && idleHp ? restHips.position.y / idleHp.values[1] : 1;
-      rigAssets.hipK = k;
-      if (Math.abs(k - 1) > 0.02) for (const n in raw) for (const tr of raw[n].tracks) if (/Hips\.position$/.test(tr.name)) for (let i = 0; i < tr.values.length; i++) tr.values[i] *= k;
+    // 動作資料：優先讀打包檔 anim.pack（遊戲專用格式，裡面是已經處理好的動作，不是原始的動作檔）。
+    //   讀不到、或網址加上 ?nopack=1 時，才從原始的 FBX 一個一個讀進來處理 —— 開發時加了新動作，就用這條路重新產生打包檔
+    let pack = null;
+    if (new URLSearchParams(location.search).get('nopack') !== '1') {
+      try { pack = await loadAnimPack('anim.pack'); } catch (err) { console.warn('動作打包檔讀不到，改讀原始動作檔：', err.message || err); }
     }
-    // 以待機動作的髖部位置當作基準點
-    const hp = raw.idle.tracks.find(t => /Hips\.position$/.test(t.name));
-    const ref = { x: hp.values[0], y: hp.values[1], z: hp.values[2] };
-    for (const n in raw) {
-      const c = RIG_CLIPS[n].custom ? buildSlamClip(raw[n], ref) : lockRoot(raw[n], RIG_CLIPS[n].lockY, RIG_CLIPS[n].keepRoot);
-      c.name = n; clips[n] = c;
+    if (pack) {
+      Object.assign(clips, pack.clips); Object.assign(rigAssets, pack.extras); rigAssets.fromPack = true;
+      for (const n of names) if (!clips[n]) rigAssets.missing.push(n);
+      if (!clips.idle) throw new Error('缺少待機動作');
+    } else {
+      const res = await Promise.allSettled(names.map(n => loader.loadAsync(`${RIG_CLIPS[n].file}.fbx`)));
+      const raw = {};
+      res.forEach((r, i) => {
+        const n = names[i];
+        if (r.status !== 'fulfilled' || !r.value.animations.length) { rigAssets.missing.push(n); return; }
+        raw[n] = longest(r.value);
+      });
+      if (!raw.idle) throw new Error('缺少待機動作');
+      // 動作檔（X Bot，公分）和角色骨架的單位、腿長可能不同：把髖部位移換算成這個角色的比例
+      {
+        const restHips = base.getObjectByName('mixamorigHips');
+        const idleHp = raw.idle.tracks.find(t => /Hips\.position$/.test(t.name));
+        const k = restHips && idleHp ? restHips.position.y / idleHp.values[1] : 1;
+        rigAssets.hipK = k;
+        if (Math.abs(k - 1) > 0.02) for (const n in raw) for (const tr of raw[n].tracks) if (/Hips\.position$/.test(tr.name)) for (let i = 0; i < tr.values.length; i++) tr.values[i] *= k;
+      }
+      // 以待機動作的髖部位置當作基準點
+      const hp = raw.idle.tracks.find(t => /Hips\.position$/.test(t.name));
+      const ref = { x: hp.values[0], y: hp.values[1], z: hp.values[2] };
+      for (const n in raw) {
+        const c = RIG_CLIPS[n].custom ? buildSlamClip(raw[n], ref) : lockRoot(raw[n], RIG_CLIPS[n].lockY, RIG_CLIPS[n].keepRoot);
+        c.name = n; clips[n] = c;
+      }
+      if (clips.hitH) clips.hitHm = mirrorClip(clips.hitH, 'hitHm');     // Head Hit 的左右相反版：集滿演出中依左、右拳往不同邊倒
+      // A 的重擊：使用 ActorCore 的 Push Punch R（Reallusion 骨架），轉到 Mixamo 骨架上
+      try {
+        const src = await loader.loadAsync('strong_src.fbx');
+        const c = lockRoot(retargetCC(src, longest(src), 'strong'));
+        clips.strong = c; rigAssets.strongSource = 'Push Punch R';
+      } catch (err) { console.warn('Push Punch R 轉換失敗，A 沿用 Uppercut：', err); rigAssets.strongSource = 'Uppercut'; }
+      rigAssets.packNames = Object.keys(clips);       // 要放進打包檔的動作（到這裡為止都是「從檔案讀進來並處理好」的；之後的是程式再衍生的）
     }
-    if (clips.hitH) clips.hitHm = mirrorClip(clips.hitH, 'hitHm');     // Head Hit 的左右相反版：集滿演出中依左、右拳往不同邊倒
-    // A 的重擊：使用 ActorCore 的 Push Punch R（Reallusion 骨架），轉到 Mixamo 骨架上
-    try {
-      const src = await loader.loadAsync('strong_src.fbx');
-      const c = lockRoot(retargetCC(src, longest(src), 'strong'));
-      clips.strong = c; rigAssets.strongSource = 'Push Punch R';
-    } catch (err) { console.warn('Push Punch R 轉換失敗，A 沿用 Uppercut：', err); rigAssets.strongSource = 'Uppercut'; }
     // 掛邊：取「爬上來」動作最開頭的姿勢停住
     if (clips.climb) clips.hang = THREE.AnimationUtils.subclip(clips.climb, 'hang', 0, 2, 30);
     if (clips.climb) {                    // 爬上來動作的身體位移（相對於一開始），給「被震下／放手」時決定位置用
@@ -3694,7 +3751,7 @@ document.getElementById('tutBtn').addEventListener('click', e => { e.currentTarg
 // =====================================================================
 // 主迴圈（固定 120Hz 物理步長）
 // =====================================================================
-window.__sumo = { tut, beginTutorial, endTutorial, get bloomPass() { return bloomPass; }, retargetCC, rigAssets, HITANIM, applyHit, startClash, player, cpu, P, game, human, ai, tilt, bearers, corners, camera, platform, MOVES, isPaused: () => paused };   // 除錯用
+window.__sumo = { makeAnimPack, tut, beginTutorial, endTutorial, get bloomPass() { return bloomPass; }, retargetCC, rigAssets, HITANIM, applyHit, startClash, player, cpu, P, game, human, ai, tilt, bearers, corners, camera, platform, MOVES, isPaused: () => paused };   // 除錯用
 const STEP = 1 / 120;
 let acc = 0, last = performance.now();
 startMatch();
