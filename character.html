@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUMO 角色預覽</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #fff; font-family: -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; color: #222; }
+  canvas { display: block; }
+  #bar { position: fixed; left: 16px; top: 12px; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; }
+  #bar button, #bar a { color: #222; background: rgba(255,255,255,.85); border: 1px solid #c8c8c8; border-radius: 4px; padding: 4px 10px; font: inherit; text-decoration: none; cursor: pointer; }
+  #bar button:hover, #bar a:hover { border-color: #d8261b; }
+  #bar button.on { background: #222; color: #fff; border-color: #222; }
+  #help { position: fixed; left: 16px; bottom: 12px; font-size: 12px; color: #888; line-height: 1.7; }
+  #msg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #888; pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="bar">
+  <a id="back" href="index.html">← 回到遊戲</a>
+  <a href="index.html?view=character">出招模式</a>
+  <button data-v="front">正面</button><button data-v="side">側面</button><button data-v="back">背面</button><button data-v="top">俯視</button>
+  <button id="spin">自動旋轉</button><button id="pose">待機動作</button><button id="wire">線框</button><button id="shadow" class="on">影子</button>
+</div>
+<div id="help">左鍵拖曳：旋轉　滾輪：縮放　右鍵拖曳：平移</div>
+<div id="msg">角色載入中…</div>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const HEIGHT = 1.75;                                   // 角色統一縮放成這個身高（公尺），方便取景
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);          // 純白背景
+const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.02, 200);
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.enableDamping = true; orbit.dampingFactor = 0.12; orbit.minDistance = 0.25; orbit.maxDistance = 30; orbit.zoomSpeed = 3; orbit.zoomToCursor = true;
+orbit.target.set(0, HEIGHT * 0.52, 0);
+
+// 燈光：柔和的環境光 + 一盞主光 + 一盞補光，不偏色，方便看模型本身的顏色
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d8d8, 1.5));
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(2.5, 5, 3.5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 6; key.shadow.bias = -0.0005;
+Object.assign(key.shadow.camera, { left: -2.5, right: 2.5, top: 2.5, bottom: -2.5, near: 0.5, far: 15 });
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xffffff, 0.7); fill.position.set(-3, 2, -2.5); scene.add(fill);
+
+// 白色空地：地面本身和背景一樣白（看不到地平線），只接影子
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: 0.22 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+const VIEWS = { front: [0, 0.55, 1], side: [1, 0.55, 0], back: [0, 0.55, -1], top: [0, 1, 0.001] };
+function setView(name) {
+  const [x, y, z] = VIEWS[name], d = name === 'top' ? 6 : 5.2;
+  const t = orbit.target.clone().set(0, HEIGHT * 0.52, 0); orbit.target.copy(t);
+  if (name === 'top') camera.position.set(0, d, 0.001);
+  else camera.position.set(x * d, HEIGHT * y, z * d);
+  orbit.update();
+}
+setView('front'); camera.position.set(1.9, 1.35, 4.9); orbit.update();   // 一開始：稍微偏右前方的四分之三視角
+
+let model = null, mixer = null, idle = null;
+const mats = [];
+const $ = id => document.getElementById(id);
+
+// 讀遊戲的動作打包檔，只取待機動作
+async function loadIdle() {
+  const res = await fetch('anim.pack'); if (!res.ok) throw new Error('HTTP ' + res.status);
+  const buf = await res.arrayBuffer(), u8 = new Uint8Array(buf);
+  if (new TextDecoder().decode(u8.subarray(0, 8)) !== 'SUMOANI1') throw new Error('格式不符');
+  const hl = new DataView(buf).getUint32(8, true);
+  const head = JSON.parse(new TextDecoder().decode(u8.subarray(12, 12 + hl)));
+  let off = 12 + Math.ceil(hl / 4) * 4;
+  const take = n => { const a = new Float32Array(buf, off, n); off += n * 4; return a; };
+  for (const c of head.clips) {
+    const times = c.times.map(take);
+    const tracks = c.tracks.map(([name, ti, nv]) => new (/\.quaternion$/.test(name) ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack)(name, times[ti], take(nv)));
+    if (c.name === 'idle') return new THREE.AnimationClip(c.name, c.duration, tracks);
+  }
+  throw new Error('沒有待機動作');
+}
+
+(async () => {
+  try {
+    const fbx = await new FBXLoader().loadAsync('gi.fbx');
+    fbx.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = true; o.frustumCulled = false;
+      const list = Array.isArray(o.material) ? o.material : [o.material];
+      const out = list.map(src => {
+        if (src && src.map) src.map.colorSpace = THREE.SRGBColorSpace;
+        const m = new THREE.MeshStandardMaterial({ map: src && src.map || null, color: src && src.map ? 0xffffff : (src && src.color) || 0xcccccc, roughness: 0.85 });
+        mats.push(m); return m;
+      });
+      o.material = Array.isArray(o.material) ? out : out[0];
+    });
+    // 縮放到固定身高、雙腳踩在地面、置中
+    fbx.updateMatrixWorld(true);
+    let box = new THREE.Box3().setFromObject(fbx, true);
+    const h = box.max.y - box.min.y;
+    if (h > 0) fbx.scale.multiplyScalar(HEIGHT / h);
+    fbx.updateMatrixWorld(true);
+    box = new THREE.Box3().setFromObject(fbx, true);
+    fbx.position.x -= (box.min.x + box.max.x) / 2; fbx.position.z -= (box.min.z + box.max.z) / 2; fbx.position.y -= box.min.y;
+    scene.add(fbx); model = fbx;
+    mixer = new THREE.AnimationMixer(fbx);
+    $('msg').style.display = 'none';
+    window.__char = { model, box };
+  } catch (err) {
+    console.error(err); $('msg').textContent = '角色模型讀不到（gi.fbx）';
+  }
+})();
+
+for (const b of document.querySelectorAll('#bar button[data-v]')) b.addEventListener('click', () => setView(b.dataset.v));
+$('spin').addEventListener('click', e => { orbit.autoRotate = !orbit.autoRotate; orbit.autoRotateSpeed = 2.2; e.target.classList.toggle('on', orbit.autoRotate); });
+$('wire').addEventListener('click', e => { const on = !e.target.classList.contains('on'); e.target.classList.toggle('on', on); for (const m of mats) m.wireframe = on; });
+$('shadow').addEventListener('click', e => { const on = !e.target.classList.contains('on'); e.target.classList.toggle('on', on); ground.visible = on; });
+$('pose').addEventListener('click', async e => {
+  if (!mixer) return;
+  const on = !e.target.classList.contains('on');
+  if (on && !idle) {
+    try { idle = await loadIdle();
+    } catch (err) { console.warn('待機動作讀不到', err); e.target.textContent = '待機動作（讀不到）'; e.target.disabled = true; return; }
+  }
+  e.target.classList.toggle('on', on);
+  if (on) mixer.clipAction(idle).reset().play(); else { mixer.stopAllAction(); model.traverse(o => { if (o.isSkinnedMesh) o.skeleton.pose(); }); }
+});
+
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => { const dt = clock.getDelta(); if (mixer) mixer.update(dt); orbit.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>

@@ -72,8 +72,12 @@
   body.viewonly #langBtn, body.viewonly #msg, body.viewonly #vig, body.viewonly #tut, body.viewonly #fps { display: none !important; }
   #viewHelp { display: none; position: fixed; left: 16px; top: 12px; z-index: 40; font-size: 12px; line-height: 1.8; opacity: .8; }
   body.viewonly #viewHelp { display: block; }
-  #viewHelp a, #viewBtn { color: #eee; background: rgba(0,0,0,.55); border: 1px solid #444; border-radius: 4px; padding: 3px 9px; font: inherit; font-size: 11px; text-decoration: none; cursor: pointer; }
-  #viewHelp a:hover, #viewBtn:hover { border-color: #d8261b; }
+  body.charview { background: #fff; }
+  body.charview #grade { display: none; }
+  body.charview #viewHelp { color: #333; opacity: 1; }
+  body.charview #viewHelp a { color: #222; background: rgba(255,255,255,.85); border-color: #c8c8c8; }
+  #viewHelp a, #viewBtn, #charBtn { color: #eee; background: rgba(0,0,0,.55); border: 1px solid #444; border-radius: 4px; padding: 3px 9px; font: inherit; font-size: 11px; text-decoration: none; cursor: pointer; }
+  #viewHelp a:hover, #viewBtn:hover, #charBtn:hover { border-color: #d8261b; }
   #framesOv { position: fixed; inset: 0; z-index: 90; display: none; background: rgba(4,6,12,.82); padding: 3vh 3vw; }
   #framesOv.on { display: block; }
   #framesOv iframe { width: 100%; height: 100%; border: 1px solid #2a3348; border-radius: 10px; background: #070b14; }
@@ -172,7 +176,7 @@
   <div class="sub" data-i18n="resume">按 P 或 Esc 繼續</div>
 </div>
 <div id="panel" class="hidden">
-  <h3>調整 <span><button id="viewBtn">平台預覽</button> <button id="resetParams">預設值</button></span></h3>
+  <h3>調整 <span><button id="viewBtn">平台預覽</button> <button id="charBtn">角色預覽</button> <button id="resetParams">預設值</button></span></h3>
   <div class="body"><h4 data-i18n="keysTitle"></h4><div id="keysHelp" data-i18n="hintKeys"></div><div id="sliders"></div></div>
 </div>
 
@@ -265,9 +269,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // 可調參數
 // =====================================================================
 const DEFAULTS = {
-  accel: 30, damping: 4, airControl: 0.5, jumpPower: 9.5, airG: 24,
-  gravity: 9.8, tiltGain: 0.04, tiltMax: 0.14, tiltStiff: 25, tiltDamp: 6, tiltKB: 1.5, landKick: 0.12,
-  bearPerEdge: 8, cornerHit: 60, collapseTime: 5, protectTime: 4, collapseAngle: 0.2, collapsePull: 12,
+  accel: 43, damping: 4, airControl: 0.5, jumpPower: 9, airG: 28,
+  gravity: 12.5, tiltGain: 0.05, tiltMax: 0.2, tiltStiff: 7, tiltDamp: 8, tiltKB: 1.5, landKick: 0.22,
+  bearPerEdge: 8, cornerHit: 60, collapseTime: 7, protectTime: 4, collapseAngle: 0.23, collapsePull: 12,
   kbScale: 1, dmgScale: 1, hitstunScale: 1, blastDist: 22, ledgeWait: 3, ledgeSlow: 0.5, roundsToWin: 2,
   cpuLevel: 1,
   platW: 13.1, platD: 7.8, thick: 0.35, heriH: 0.03, tatamiWear: 0.14, tatamiMess: 0.6, matWave: 0.05, matDamage: 0.4,
@@ -1867,6 +1871,18 @@ function updateAI(dt) {
 const tilt = { x: 0, z: 0, vx: 0, vz: 0, y: 0, vy: 0 };   // y：平台整體下沉量
 const clampV = (v, lim) => Math.max(-lim, Math.min(lim, v));
 let hitStop = 0, shake = 0, slowT = 0;
+// 擊飛的鏡頭晃動：擊飛力道越大（飛得越遠），晃得越大、越久。對手成立的欄越多，力道會跳一級，所以第三欄被打飛明顯比第一欄晃得厲害
+//   QUAKE.from：力道低於這個值不額外晃（輕拳、小擊退）；QUAKE.full：到這個值就是最大晃動
+const QUAKE = { from: 4, full: 31, min: 0.12, max: 1.5, durMin: 0.22, durMax: 0.75, roll: 0.03 };
+const quake = { a: 0, t: 0, dur: 0.3, k: 0, ph: [0, 0, 0] };
+function launchQuake(kb) {
+  const k = Math.max(0, Math.min(1, (kb - QUAKE.from) / (QUAKE.full - QUAKE.from)));
+  if (k <= 0) return;
+  const a = QUAKE.min + (QUAKE.max - QUAKE.min) * Math.pow(k, 1.25);
+  if (a < quake.a * Math.max(0, 1 - quake.t / quake.dur)) return;      // 還在晃、而且比這次大：不蓋掉
+  quake.a = a; quake.t = 0; quake.k = k; quake.dur = QUAKE.durMin + (QUAKE.durMax - QUAKE.durMin) * k;
+  quake.ph = [Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28];
+}
 
 function stepTilt(dt) {
   // 平常：依選手位置輕微傾斜；角落塌陷時再加上往那一角的大幅傾斜
@@ -2006,6 +2022,7 @@ function applyHit(a, t, d, dirx, dirz, charge) {
   t.hitKind = d === MOVES.jab1 || d === MOVES.jab2 ? 'light' : t.ground ? 'heavy' : 'launch';
   hitStop = Math.min(0.22, 0.045 + dmg * 0.009);   // 打擊停格：越重的招式頓得越久
   shake = Math.max(shake, Math.min(0.45, kb * 0.022));
+  if (!t.ground) launchQuake(kb);         // 真的被打飛（離地）才有擊飛的大晃動
   camImpact(dirx, dirz, kb);
   hitContact(a, t, CONTACT.get(d));
   { // 特效打在接觸點：對手身體朝向出招者的那一面
@@ -2811,7 +2828,9 @@ function animateFighter(f, dt) {
 //   character.fbx：人物本體（附帶 Body Block 動作）；idle / punch / hit：只有動作。
 //   載入完成前（或載入失敗時）沿用程式組成的方塊人。位移由遊戲物理控制，所以把動作的水平位移鎖住。
 // =====================================================================
-const CHAR_FILES = ['gi', 'character'];   // 角色模型檔（ 裡），依序嘗試
+// 網址加 ?char=xbot：改用早期版本的 Mixamo 預設人偶（X Bot）；?char=box：最早期的方塊人。拍迭代對比用
+const CHAR_MODE = new URLSearchParams(location.search).get('char');
+const CHAR_FILES = CHAR_MODE === 'xbot' ? ['character'] : ['gi', 'character'];   // 角色模型檔（ 裡），依序嘗試
 const rigAssets = { ready: false, base: null, clips: {}, impact: {}, scale: 1, missing: [] };
 // 動作檔對照表。lockY：連上下位移也鎖住（跳躍、下墜、爬上來的高度由遊戲物理控制）
 const RIG_CLIPS = {
@@ -3097,7 +3116,7 @@ async function loadRig() {
     // 動作資料：優先讀打包檔 anim.pack（遊戲專用格式，裡面是已經處理好的動作，不是原始的動作檔）。
     //   讀不到、或網址加上 ?nopack=1 時，才從原始的 FBX 一個一個讀進來處理 —— 開發時加了新動作，就用這條路重新產生打包檔
     let pack = null;
-    if (new URLSearchParams(location.search).get('nopack') !== '1') {
+    if (new URLSearchParams(location.search).get('nopack') !== '1' && CHAR_MODE !== 'xbot') {   // X Bot 的身材比例不同：動作從原始檔重新換算
       try { pack = await loadAnimPack('anim.pack'); } catch (err) { console.warn('動作打包檔讀不到，改讀原始動作檔：', err.message || err); }
     }
     if (pack) {
@@ -3343,7 +3362,7 @@ function blendPose(M, dt) {
 // 細節層：視線跟著對手（脖子和頭各轉一半），最多轉約 50°
 const _lkA = new THREE.Vector3(), _lkB = new THREE.Vector3(), _lkC = new THREE.Vector3(), _lkQ = new THREE.Quaternion(), _lkI = new THREE.Quaternion();
 function lookAtOpp(f, w) {
-  const M = f.model, o = f.opp, om = o && o.model; if (!om || w < 0.01) return;
+  const M = f.model, o = f.opp, om = o && o.model; if (!om || w < 0.01 || CHAR_VIEW) return;
   const head = M.headB ??= M.model.getObjectByName('mixamorigHead'), neck = M.neckB ??= M.model.getObjectByName('mixamorigNeck');
   const oh = om.headB ??= om.model.getObjectByName('mixamorigHead');
   if (!head || !neck || !oh) return;
@@ -3595,7 +3614,7 @@ function updateModel(f, dt, spinX, spinY) {
   // 瞄準要在身體都轉完之後做：最後才把出拳的手臂對準對手的臉
   if (game.clash && game.clash.a === f && game.clash.aim && game.clash.aim.w > 0.01) aimPunch(f, game.clash.v, game.clash.aim.side, game.clash.aim.w);
 }
-loadRig();
+if (CHAR_MODE === 'box') loadDone.rig = true; else loadRig();
 
 // =====================================================================
 // 鏡頭：自動把雙方都框在畫面裡
@@ -3627,6 +3646,8 @@ function camImpact(dirx, dirz, kb) {
   camHit.punch = Math.min(0.16, camHit.punch + kb * 0.006);
   camHit.rollV += (Math.random() < 0.5 ? -1 : 1) * Math.min(1.3, kb * 0.05);
 }
+const _camN = new THREE.Vector3(), _camD = new THREE.Vector3();
+const CAM_MIN_OVER = Math.sin(3.5 * Math.PI / 180);   // 視線至少要比平台表面高這個角度（平台水平時的側面視角是 4 度，不受影響）
 function updateCamera(dt) {
   const pts = fighters.filter(f => !f.out && f.dead <= 0)
     .map(f => platform.localToWorld(_v.set(f.x, Math.max(f.y, -4) + 0.9, f.z).clone()));
@@ -3768,15 +3789,36 @@ function updateCamera(dt) {
   const elevN = Math.max(0.2, elev0 - 0.3 * camDrama);
   const elev = elevN + (CAM_FLAT_ELEV - elevN) * camFlat, az = CAM_AZIM + camYaw;
   const dist = camR * aspectK * camZoom * (1 - 0.12 * camFlat) * dolly * breathe * (1 - camHit.punch);   // 側面看時兩人排成一橫列，可以靠近一點
-  camPos.set(Math.sin(az) * Math.cos(elev), Math.sin(elev), Math.cos(az) * Math.cos(elev)).multiplyScalar(dist).add(camMid);
+  // 鏡頭一定要在榻榻米這一面的上方：平台傾斜或角落塌陷時，如果鏡頭壓得比平台的斜度還低，就會從側面甚至底下看到平台的黑色底面。
+  //   做法：算出平台表面朝上的方向，視線和平台表面的夾角太小（或鏡頭低於平台表面）就把鏡頭往上抬，直到看得到正面為止
+  _camN.set(0, 1, 0).applyQuaternion(platform.quaternion);
+  for (let e = elev, i = 0; i < 40; i++, e += 0.03) {
+    _camD.set(Math.sin(az) * Math.cos(e), Math.sin(e), Math.cos(az) * Math.cos(e));
+    camPos.copy(_camD).multiplyScalar(dist).add(camMid);
+    const above = (camPos.x - platform.position.x) * _camN.x + (camPos.y - platform.position.y) * _camN.y + (camPos.z - platform.position.z) * _camN.z;
+    if ((_camD.dot(_camN) >= CAM_MIN_OVER && above >= 1) || e > 1.35) break;
+  }
   // 畫面的「右」方向（漂浮和衝擊用）
   const rx = Math.cos(az), rz = -Math.sin(az), fs = camZoom * dolly;
+  // 擊飛的晃動：一開始最大，之後快速衰減；左右、上下用不同的頻率抖，看起來是震動而不是雜訊。鏡頭拉遠時幅度跟著放大，畫面上看到的晃動才一致
+  let qx = 0, qy = 0, qr = 0;
+  if (quake.a > 0) {
+    quake.t += dt;
+    const u = quake.t / quake.dur;
+    if (u >= 1) quake.a = 0;
+    else {
+      const env = (1 - u) * (1 - u), amp = quake.a * env * Math.max(0.7, Math.min(3, dist / 26)), T = quake.t;
+      qx = amp * (Math.sin(T * 61 + quake.ph[0]) * 0.65 + Math.sin(T * 97 + quake.ph[1]) * 0.35);
+      qy = amp * (Math.sin(T * 73 + quake.ph[1]) * 0.65 + Math.sin(T * 113 + quake.ph[2]) * 0.35) * 0.8;
+      qr = QUAKE.roll * quake.k * env * Math.sin(T * 47 + quake.ph[2]);
+    }
+  }
   camera.position.copy(camPos).add(_v.set(
-    rx * fx * fs + camHit.x + (Math.random() - 0.5) * shake,
-    fy * fs + (Math.random() - 0.5) * shake,
-    rz * fx * fs + camHit.z + (Math.random() - 0.5) * shake));
+    rx * fx * fs + camHit.x + (Math.random() - 0.5) * shake + rx * qx,
+    fy * fs + (Math.random() - 0.5) * shake + qy,
+    rz * fx * fs + camHit.z + (Math.random() - 0.5) * shake + rz * qx));
   camera.lookAt(camMid.x + camHit.x * 0.55, camMid.y + camLookY * camZoom * dolly * (1 - camFlat), camMid.z + camHit.z * 0.55);
-  camera.rotateZ(camHit.roll + Math.sin(tt * 0.23) * 0.004 * calm);
+  camera.rotateZ(camHit.roll + Math.sin(tt * 0.23) * 0.004 * calm + qr);
 }
 
 // =====================================================================
@@ -4068,7 +4110,7 @@ document.getElementById('tutBtn').addEventListener('click', e => { e.currentTarg
 // =====================================================================
 // 主迴圈（固定 120Hz 物理步長）
 // =====================================================================
-window.__sumo = { makeAnimPack, tut, beginTutorial, endTutorial, get bloomPass() { return bloomPass; }, retargetCC, rigAssets, HITANIM, applyHit, startClash, player, cpu, P, game, human, ai, tilt, bearers, corners, camera, platform, MOVES, isPaused: () => paused };   // 除錯用
+window.__sumo = { quake, QUAKE, makeAnimPack, tut, beginTutorial, endTutorial, get bloomPass() { return bloomPass; }, retargetCC, rigAssets, HITANIM, applyHit, startClash, player, cpu, P, game, human, ai, tilt, bearers, corners, camera, platform, MOVES, isPaused: () => paused };   // 除錯用
 const STEP = 1 / 120;
 let acc = 0, last = performance.now();
 startMatch();
@@ -4103,7 +4145,55 @@ function stepAutoRes(ms, now) {
   if (Math.abs(next - autoRes.cur) > 1e-3) { autoRes.cur = next; renderer.setPixelRatio(next); resize(); }
 }
 // ---- 平台預覽模式：只看平台，可以自己轉、縮放、平移；調整面板的滑桿照常可用 ----
-const VIEW_ONLY = new URLSearchParams(location.search).get('view') === 'platform';
+const VIEW_MODE = new URLSearchParams(location.search).get('view');
+const VIEW_ONLY = VIEW_MODE === 'platform';
+const CHAR_VIEW = VIEW_MODE === 'character';     // 角色預覽：白色空地上只有玩家角色，照常可以出招
+// ---- 角色預覽模式：白色背景＋白色空地，只留玩家角色；遊戲的出招邏輯照跑（沒有對手、不會出界、平台不會晃） ----
+let charGround = null;
+const _cvPrev = new THREE.Vector3();
+function initCharView() {
+  document.body.classList.add('viewonly', 'charview');
+  { const pn = document.getElementById('panel'); pn.classList.add('hidden'); pn.classList.remove('open'); }   // 調整面板先收起來（按 H 打開），不擋住角色
+  document.getElementById('viewHelp').innerHTML = '<b>角色預覽</b>　WASD 移動 · 空白鍵 跳躍 · J 攻擊 · K 翻滾 · L 重擊（可按住蓄力）· P 嘲諷<br>'
+    + '左鍵拖曳：旋轉　·　滾輪：縮放　·　右鍵拖曳：平移　·　R：回到中央　·　H：調整面板<br>'
+    + '<a href="character.html">T 字站姿／線框</a>　<a id="viewBack2" href="#">回到遊戲</a>';
+  document.getElementById('viewBack2').href = location.pathname.split('/').pop() || 'index.html';
+  scene.background = new THREE.Color(0xffffff); scene.fog.near = 900; scene.fog.far = 1000;
+  P.bloom = 0;                                              // 白底不需要泛光（後製會讓白色變灰）
+  for (const o of scene.children) if (!o.isLight && o !== platform && o !== spot.target) o.visible = false;   // 抬轎的人
+  for (const o of platform.children) if (o !== player.mesh) o.visible = false;                               // 平台本體、對手
+  charGround = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.ShadowMaterial({ opacity: 0.25 }));   // 地面和背景一樣白，只接影子
+  charGround.rotation.x = -Math.PI / 2; charGround.position.y = 0.012; charGround.receiveShadow = true; scene.add(charGround);
+  hemi.color.set(0xffffff); hemi.groundColor.set(0xdcdcdc); fill.color.set(0xffffff);
+  spot.castShadow = false;                                  // 頂光有光圈範圍，白地上會出現一圈暗角 → 改用平行光打影子，走到哪都一樣亮
+  fill.castShadow = true; fill.shadow.mapSize.set(2048, 2048); fill.shadow.bias = -0.0005; fill.shadow.radius = 5;
+  Object.assign(fill.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 0.5, far: 30 }); fill.shadow.camera.updateProjectionMatrix();
+  scene.add(fill.target);
+  camera.fov = 30; camera.near = 0.05; camera.updateProjectionMatrix();
+  camera.position.set(player.x + 2.8, 1.9, player.z + 7.4);
+  orbit = new OrbitControls(camera, renderer.domElement);
+  orbit.enableDamping = true; orbit.dampingFactor = 0.12; orbit.target.set(player.x, 0.95, player.z); orbit.minDistance = 0.5; orbit.maxDistance = 40; orbit.zoomSpeed = 3;
+  orbit.maxPolarAngle = Math.PI / 2 - 0.02;                 // 鏡頭不鑽到地面下
+  _cvPrev.set(player.x, 0, player.z);
+}
+function charViewSim() {                    // 每個物理步：只有玩家在動；走到平台邊緣前就擋住，不會掉下去
+  game.state = 'play'; game.clash = null;
+  cpu.x = 500; cpu.z = 500; cpu.y = 0; cpu.vx = cpu.vy = cpu.vz = 0; cpu.mesh.visible = false;
+  Object.assign(tilt, { x: 0, z: 0, vx: 0, vz: 0, y: 0, vy: 0 });
+  P.platW = P.platD = 4000;                 // 可以走的範圍放到非常大：實際上走不到邊，不會掉下去
+  for (const o of platform.children) if (o !== player.mesh && o.visible) o.visible = false;
+}
+function stepCharCam() {                    // 鏡頭跟著角色平移；方向鍵的「上下左右」跟著目前的視角
+  if (paused) setPaused(false);
+  const b = P.brightness / DEFAULTS.brightness;
+  spot.intensity = 0; hemi.intensity = 1.5 * b; fill.intensity = 2.2 * b;
+  fill.position.set(player.x + 3, 7, player.z + 4.5); fill.target.position.set(player.x, 0.8, player.z);
+  const dx = player.x - _cvPrev.x, dz = player.z - _cvPrev.z;
+  camera.position.x += dx; camera.position.z += dz; orbit.target.x += dx; orbit.target.z += dz;
+  _cvPrev.set(player.x, 0, player.z);
+  orbit.update();
+  camYaw = Math.atan2(camera.position.x - orbit.target.x, camera.position.z - orbit.target.z) - CAM_AZIM;
+}
 let orbit = null;
 function stepPlatformView() {
   if (!orbit) {
@@ -4120,7 +4210,8 @@ function stepPlatformView() {
 }
 { const self = location.pathname.split('/').pop() || 'index.html';
   document.getElementById('viewBack').href = self;
-  document.getElementById('viewBtn').addEventListener('click', () => { location.href = self + '?view=platform'; }); }
+  document.getElementById('viewBtn').addEventListener('click', () => { location.href = self + '?view=platform'; });
+  document.getElementById('charBtn').addEventListener('click', () => { location.href = self + '?view=character'; }); }
 function frame(now) {
   stepAutoRes(now - fpsStat.last, now);
   updateFps(now);
@@ -4134,10 +4225,12 @@ function frame(now) {
       loadDone.shown = true;
       const el = document.getElementById('loading'); el.style.opacity = 0; setTimeout(() => el.remove(), 600);
       startMatch();
-      if (tutWanted() && !VIEW_ONLY) beginTutorial();      // 第一次打開：先玩教程
+      if (CHAR_VIEW) initCharView();
+      if (tutWanted() && !VIEW_ONLY && !CHAR_VIEW) beginTutorial();      // 第一次打開：先玩教程
     } else { draw(); requestAnimationFrame(frame); return; }
   }
   if (VIEW_ONLY) { stepPlatformView(); draw(); requestAnimationFrame(frame); return; }
+  if (CHAR_VIEW && paused) setPaused(false);
   if (paused) { draw(); requestAnimationFrame(frame); return; }
 
   if (!Number.isFinite(hitStop)) hitStop = 0;
@@ -4150,6 +4243,7 @@ function frame(now) {
   while (acc >= STEP) {
     const active = game.state === 'play';
     updateHuman(STEP);
+    if (CHAR_VIEW) { charViewSim(); stepFighter(player, human, STEP, true); charViewSim(); stepFx(STEP); acc -= STEP; continue; }
     stepBearers(STEP);
     stepTilt(STEP);
     if (game.clash && active) stepClash(STEP);               // 連打對決：只有攻擊方能動
@@ -4169,6 +4263,7 @@ function frame(now) {
     if (![f.x, f.y, f.z, f.vx, f.vy, f.vz, f.yaw].every(Number.isFinite)) { f.x = f.z = f.y = f.vx = f.vz = f.vy = 0; f.yaw = 0; f.ground = true; f.move = null; diag.pos++; }
   }
   if (![tilt.x, tilt.z, tilt.y].every(Number.isFinite)) { Object.assign(tilt, { x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0 }); diag.pos++; }
+  if (CHAR_VIEW) { platform.rotation.set(0, 0, 0); platform.position.y = 0; animateFighter(player, dt); stepCharCam(); draw(); requestAnimationFrame(frame); return; }
   updateGame(dt);
   if (tut.active) stepTutorial(realDt);
   platform.rotation.set(tilt.x, 0, tilt.z);
