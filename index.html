@@ -54,14 +54,14 @@
   #pick .box { background: #161616; border: 1px solid #333; border-radius: 10px; padding: 20px 22px; width: min(560px, 100%); color: #eee; }
   #pick .ttl { font-size: 18px; font-weight: 700; letter-spacing: .1em; margin-bottom: 14px; }
   #pick .lab { font-size: 12px; opacity: .7; margin: 12px 0 6px; }
-  #pick .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  #pick .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   #pick .opts button { background: #262626; color: #eee; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 4px; font: inherit; font-size: 13px; cursor: pointer; }
   #pick .opts button:hover { border-color: #888; }
   #pick .opts button.sel { background: #d8261b; border-color: #d8261b; color: #fff; font-weight: 700; }
   #pick .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
   #pick .acts button { background: #333; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
   #pick .acts button.go { background: #d8261b; border-color: #d8261b; color: #fff; font-weight: 700; }
-  @media (max-width: 480px) { #pick .opts { grid-template-columns: repeat(2, 1fr); } }
+  
   /* 教程卡片：畫面上方中央 */
   #tut { position: fixed; left: 50%; top: 58px; transform: translateX(-50%); z-index: 45; display: none; width: min(460px, 86vw);
     background: rgba(8,10,16,.78); border: 1px solid #3a3d47; border-radius: 12px; padding: 14px 18px 12px; text-align: center;
@@ -236,7 +236,7 @@ const I18N = {
     },
     worst: '最慢', langBtn: 'EN', frameBtn: '幀數表', clashAtk: '連按 J 或 L',
     pickBtn: '選角色', pickTitle: '選角色', pickYou: '你', pickFoe: '對手', pickGo: '開始對戰', pickView: '看我的角色', pickCancel: '取消',
-    charNames: ['道服', '第一個鬥士', '第二個鬥士', '第三個鬥士'],
+    charNames: ['道服', '第一個鬥士', '第二個鬥士'],
   },
   en: {
     you: 'YOU', cpu: 'CPU', loading: 'Loading…', paused: 'PAUSED', resume: 'Press Esc to resume',
@@ -264,7 +264,7 @@ const I18N = {
     },
     worst: 'worst', langBtn: '中文', frameBtn: 'Frame Data', clashAtk: 'MASH J or L',
     pickBtn: 'Characters', pickTitle: 'CHOOSE FIGHTERS', pickYou: 'You', pickFoe: 'Opponent', pickGo: 'Fight', pickView: 'View my fighter', pickCancel: 'Cancel',
-    charNames: ['Gi', 'Fighter 1', 'Fighter 2', 'Fighter 3'],
+    charNames: ['Gi', 'Fighter 1', 'Fighter 2'],
   },
 };
 let LANG = (() => {
@@ -3373,8 +3373,9 @@ const CHAR_FILES = CHAR_MODE === 'xbot' ? ['character'] : ['gi', 'character'];  
 // ?char=fighter1：玩家用第一個鬥士（牛角飛行帽＋圍兜），對手照舊用道服角色。鬥士的體型放大 F1_SIZE 倍（只是外觀，碰撞範圍不變）
 // 選角：?char= 是玩家的角色、?foe= 是對手的角色（沒寫 = 道服角色）。fighter1：第一個鬥士（第二版身體），fighter1old：舊版
 const CHAR_SPEC = { fighter1: { file: 'fighter1v2', size: 1.25 }, fighter1old: { file: 'fighter1', size: 1.25 },
-  fighter2: { file: 'fighter2', size: 1.1 },      // 第二個鬥士：頭頂的髮髻和馬尾佔了一截高度，放大一點讓身體跟其他角色差不多大
-  fighter3: { file: 'fighter3', size: 1.2 } };    // 第三個鬥士：褲子拉長、頭頂有髮髻，整體偏高
+  // 第二個鬥士＝前衛老人（模型檔 fighter3）：總高 180 公分（含頭頂髮髻）。道服角色是 185 公分，所以倍率 = 1.80 / 1.85
+  // 原本的第二個鬥士（銀髮老武士、紫色盔甲，模型檔 fighter2）2026-11-21 使用者決定刪掉，不再出現在選角裡
+  fighter2: { file: 'fighter3', size: 1.80 / 1.85 } };
 const FOE_MODE = new URLSearchParams(location.search).get('foe');
 const P_SPEC = CHAR_SPEC[CHAR_MODE] || null, C_SPEC = new URLSearchParams(location.search).get('view') === 'character' ? null : CHAR_SPEC[FOE_MODE] || null;   // 角色預覽沒有對手，不用讀
 const rigAssets = { ready: false, base: null, clips: {}, impact: {}, scale: 1, missing: [] };
@@ -5323,7 +5324,7 @@ function initCharView() {
   document.getElementById('viewHelp').innerHTML = '<b>角色預覽</b>　WASD 移動 · 空白鍵 跳躍 · J 攻擊 · K 翻滾 · L 重擊（可按住蓄力）· I 彈反 · P 嘲諷<br>'
     + '左鍵拖曳：旋轉　·　滾輪：縮放　·　右鍵拖曳：平移　·　R：回到中央　·　H：調整面板<br>'
     + '<a href="character.html">T 字站姿／線框</a>　<a id="viewBack2" href="#">回到遊戲</a><br>'
-    + '角色：<a class="charPick" data-char="">道服</a>　<a class="charPick" data-char="fighter1">第一個鬥士</a>　<a class="charPick" data-char="fighter2">第二個鬥士</a>　<a class="charPick" data-char="fighter3">第三個鬥士</a>';
+    + '角色：<a class="charPick" data-char="">道服</a>　<a class="charPick" data-char="fighter1">第一個鬥士</a>　<a class="charPick" data-char="fighter2">第二個鬥士</a>';
   { const q = new URLSearchParams(location.search); q.delete('view'); const qs = q.toString();
     document.getElementById('viewBack2').href = (location.pathname.split('/').pop() || 'index.html') + (qs ? '?' + qs : ''); }   // 回到遊戲：保留選好的角色
   // 切換預覽的角色：換網址的 char 參數重新載入（每隻角色的模型、貼圖、動作換算都不同）
@@ -5389,7 +5390,7 @@ function stepPlatformView() {
   document.getElementById('charBtn').addEventListener('click', () => { location.href = charViewUrl(); }); }
 // ---- 選角 ----
 // 選好之後換網址重新載入：?char= 玩家、?foe= 對手（每隻角色的模型、貼圖、動作換算都要重新讀）
-const PICK_KEYS = ['', 'fighter1', 'fighter2', 'fighter3'];
+const PICK_KEYS = ['', 'fighter1', 'fighter2'];
 const pickSel = { char: CHAR_SPEC[CHAR_MODE] ? CHAR_MODE : '', foe: CHAR_SPEC[FOE_MODE] ? FOE_MODE : '' };
 function gameUrl(extra) {
   const q = new URLSearchParams(location.search);
