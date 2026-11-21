@@ -350,7 +350,8 @@ $('lang').addEventListener('click', () => { LANG = LANG === 'zh' ? 'en' : 'zh'; 
 // 從遊戲檔案讀取最新的招式數值（開發版是 sumo.html，上線版是 index.html）
 (async () => {
   if (EMBED) {
-    try { MOVES = parent.__sumo.MOVES; live = true; srcFile = ''; render(); return; } catch (e) {}
+    try { MOVES = parent.__sumo.playerMoves ? parent.__sumo.playerMoves() : parent.__sumo.MOVES; live = true;   // 玩家這隻角色實際的幀數（第一個鬥士輕拳較慢）
+      srcFile = ''; render(); return; } catch (e) {}
   }
   for (const file of ['sumo.html', 'index.html']) {
     try {
