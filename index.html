@@ -3375,7 +3375,8 @@ const CHAR_MODE = new URLSearchParams(location.search).get('char');
 const CHAR_FILES = CHAR_MODE === 'xbot' ? ['character'] : ['gi', 'character'];   // 角色模型檔（ 裡），依序嘗試
 // ?char=fighter1：玩家用第一個鬥士（牛角飛行帽＋圍兜），對手照舊用道服角色。鬥士的體型放大 F1_SIZE 倍（只是外觀，碰撞範圍不變）
 // 選角：?char= 是玩家的角色、?foe= 是對手的角色（沒寫 = 道服角色）。fighter1：第一個鬥士（第二版身體），fighter1old：舊版
-const CHAR_SPEC = { fighter1: { file: 'fighter1v2', size: 1.25 }, fighter1old: { file: 'fighter1', size: 1.25 },
+const CHAR_SPEC = { fighter1: { file: 'fighter1v2', size: 2.05 / 1.85 },   // 第一個鬥士：總高 205 公分（含牛角帽）
+  fighter1old: { file: 'fighter1', size: 1.25 },
   // 第二個鬥士＝前衛老人（模型檔 fighter3）：總高 180 公分（含頭頂髮髻）。道服角色是 185 公分，所以倍率 = 1.80 / 1.85
   // 原本的第二個鬥士（銀髮老武士、紫色盔甲，模型檔 fighter2）2026-11-21 使用者決定刪掉，不再出現在選角裡
   fighter2: { file: 'fighter3', size: 1.80 / 1.85 } };
