@@ -306,7 +306,7 @@ const DEFAULTS = {
   kbScale: 1, dmgScale: 1, hitstunScale: 1, blastDist: 22, ledgeWait: 3, ledgeSlow: 0.5, roundsToWin: 2,
   cpuLevel: 1,
   platW: 13.1, platD: 7.8, thick: 0.35, heriH: 0.03, tatamiWear: 0.14, tatamiMess: 0.6, matWave: 0.05, matDamage: 0.4,
-  openDark: 0, openPop: 0.5, colFlash: 1, colLean: 1, koFx: 1, koFxN: 12000, koFxTime: 3.4, koFxSpread: 1, bibSway: 1, bibFreq: 2.2, bibDamp: 0.35, skSway: 1, skFoot: 1, skFreq: 1.6, skDamp: 0.4, f1Oil: 0.12, f1Sss: 0.4, f1Sheen: 0.4, f1Leather: 0.35, f1Rim: 0.5, f1Fill: 0.35, f1Shadow: 0.65, f1Muscle: 1, f1Cav: 0.5, f1Env: 0.55, cvLight: 0.5, f1HatRed: 1, f1Pinky: 1, f1PinkySpread: 0, f1PinkyLift: 1, f1Vein: 0, f1Pore: 0,   /* 鬥士材質的數值：2026-11-20 使用者在角色預覽裡親自調好的 */
+  openDark: 0, openPop: 0.5, colFlash: 1, colLean: 1, koFx: 1, koFxN: 12000, koFxTime: 3.4, koFxSpread: 1, bibSway: 1, bibFreq: 2.2, bibDamp: 0.35, tailSway: 1, tailFreq: 1.6, tailDamp: 0.3, skSway: 1, skFoot: 1, skFreq: 1.6, skDamp: 0.4, f1Oil: 0.12, f1Sss: 0.4, f1Sheen: 0.4, f1Leather: 0.35, f1Rim: 0.5, f1Fill: 0.35, f1Shadow: 0.65, f1Muscle: 1, f1Cav: 0.5, f1Env: 0.55, cvLight: 0.5, f1HatRed: 1, f1Pinky: 1, f1PinkySpread: 0, f1PinkyLift: 1, f1Vein: 0, f1Pore: 0,   /* 鬥士材質的數值：2026-11-20 使用者在角色預覽裡親自調好的 */
   cineOn: 1, cineDist: 46, cineH: 4, cineKO: 0.55, koFocus: 2.0,
   platInset: 0.8, wedgeH: 0.6, floorOn: 1, floorReflect: 0.55, floorKO: 1,
   boxH: 36, boxLight: 1, boxWarm: 0.5, boxSoft: 0.35, boxAmbient: 0.45, underGlow: 0, bearSync: 0.85,
@@ -348,6 +348,8 @@ const GROUPS = [
   ['袴（裙子）晃動', {
     skSway: ['身體動時裙襬甩動的幅度（0 = 不甩）', 0, 3, 0.05], skFoot: ['腳踢出去時把裙襬頂起來的程度', 0, 2, 0.05],
     skFreq: ['彈性（越大越硬）', 0.6, 4, 0.1], skDamp: ['阻尼（越大越快停）', 0.1, 1, 0.05] }],
+  ['馬尾晃動', {
+    tailSway: ['晃動幅度（0 = 不晃）', 0, 2.5, 0.05], tailFreq: ['彈性（越大越硬、擺得越快）', 0.6, 4, 0.1], tailDamp: ['阻尼（越大越快停）', 0.1, 1, 0.05] }],
   ['圍兜下襬晃動', {
     bibSway: ['晃動幅度（0 = 不晃）', 0, 2.5, 0.05], bibFreq: ['彈性（越大越硬、擺得越快）', 0.8, 5, 0.1], bibDamp: ['阻尼（越大越快停）', 0.1, 1, 0.05] }],
   ['事件鏡頭', {
@@ -3355,6 +3357,7 @@ function animateFighter(f, dt) {
   if (f.model) updateModel(f, dt, spinX, spinY);
   if (f.bib) stepBib(f, hitStop > 0 ? dt * 0.05 : dt);
   if (f.skirt) stepSkirt(f, hitStop > 0 ? dt * 0.05 : dt);
+  if (f.tail) stepTail(f, hitStop > 0 ? dt * 0.05 : dt);
   if (f.f1sh) syncF1(f);   // 圍兜下襬晃動（停格時一起停）
   if (f.opacity !== opacity) {           // 空中閃避時半透明
     f.opacity = opacity;
@@ -3845,6 +3848,42 @@ const F_BONE_REF = {   // Blender 量到的骨頭位置（換成 Y 朝上），�
   fighter2: { Hips: new THREE.Vector3(0, 1.169, 0.021), Head: new THREE.Vector3(0, 1.836, -0.008), LeftArm: new THREE.Vector3(0.296, 1.629, -0.023) },
   fighter3: { Hips: new THREE.Vector3(0, 1.462, -0.002), Head: new THREE.Vector3(0, 2.071, -0.037), LeftArm: new THREE.Vector3(0.327, 1.856, -0.071) },
 };
+// ---- 馬尾晃動：馬尾是硬零件（掛在頭骨上）。在它的根部（頭頂綁起來的地方）加一個轉軸，
+//   用彈簧追一個「髮尾」點：頭往哪邊動，髮尾慢半拍跟上，轉軸就朝那邊轉 → 整條馬尾跟著甩
+const _tp = new THREE.Vector3(), _tt = new THREE.Vector3(), _ta = new THREE.Vector3(), _tq = new THREE.Quaternion();
+function setupTail(f, model) {
+  let node = null; model.traverse(o => { if (!node && /^P__Head__Ponytail/.test(o.name)) node = o; });
+  if (!node) return;
+  const bone = node.parent; model.updateMatrixWorld(true);
+  const pts = []; node.traverse(o => { if (!o.isMesh) return; const pa = o.geometry.attributes.position;
+    for (let i = 0; i < pa.count; i += 7) pts.push(new THREE.Vector3().fromBufferAttribute(pa, i).applyMatrix4(o.matrixWorld)); });
+  // 馬尾是往上翹再彎下來的形狀：根部＝最靠近頭頂的那一截（綁在頭上的地方），髮尾＝離根部最遠的那一截
+  const avg = sel => { const a = new THREE.Vector3(); let n = 0; for (const v of pts) if (sel(v)) { a.add(v); n++; } return a.multiplyScalar(1 / Math.max(1, n)); };
+  const ht = model.getObjectByName('mixamorigHeadTop_End') || bone, H = ht.getWorldPosition(new THREE.Vector3());
+  let d0 = Infinity, d1 = 0; for (const v of pts) { const d = v.distanceTo(H); d0 = Math.min(d0, d); d1 = Math.max(d1, d); }
+  const top = avg(v => v.distanceTo(H) < d0 + (d1 - d0) * 0.08);
+  let r1 = 0; for (const v of pts) r1 = Math.max(r1, v.distanceTo(top));
+  const tip = avg(v => v.distanceTo(top) > r1 * 0.85);
+  const g = new THREE.Group(); bone.add(g); g.position.copy(bone.worldToLocal(top.clone())); g.updateMatrixWorld(true);
+  g.attach(node);
+  const tipL = bone.worldToLocal(tip.clone()).sub(g.position);
+  f.tail = { g, bone, dir: tipL.clone().normalize(), len: tipL.length(), x: new THREE.Vector3(), v: new THREE.Vector3(), init: false };
+}
+function stepTail(f, dt) {
+  const T = f.tail; T.g.quaternion.identity();
+  T.bone.updateWorldMatrix(true, false);
+  T.bone.localToWorld(_tp.copy(T.g.position));                                       // 根部（世界座標）
+  T.bone.localToWorld(_tt.copy(T.dir).multiplyScalar(T.len).add(T.g.position));      // 髮尾「該在」的位置
+  if (!T.init || T.x.distanceTo(_tt) > 2) { T.x.copy(_tt); T.v.set(0, 0, 0); T.init = true; }
+  const w = 2 * Math.PI * P.tailFreq, K = w * w, C = 2 * P.tailDamp * w, n = 4, h = Math.min(dt, 0.05) / n;
+  for (let i = 0; i < n; i++) { _ta.subVectors(_tt, T.x).multiplyScalar(K).addScaledVector(T.v, -C); T.v.addScaledVector(_ta, h); T.x.addScaledVector(T.v, h); }
+  _ta.subVectors(T.x, _tt).multiplyScalar(P.tailSway).add(_tt);                     // 甩動幅度
+  T.bone.worldToLocal(_ta).sub(T.g.position).normalize();
+  _tq.setFromUnitVectors(T.dir, _ta);
+  const ang = 2 * Math.acos(Math.min(1, Math.abs(_tq.w)));
+  if (ang > 0.7) _tq.slerp(new THREE.Quaternion(), 1 - 0.7 / ang);                  // 最多轉 40 度：不會甩進頭裡或翻上天
+  T.g.quaternion.copy(_tq);
+}
 function attachParts(model, gltf, F2_BONE_REF) {
   model.updateMatrixWorld(true);
   const bw = n => model.getObjectByName('mixamorig' + n).getWorldPosition(new THREE.Vector3());
@@ -4024,7 +4063,7 @@ function attachModel(f) {
   const file = A ? A.file : rigAssets.charFile, CL = A ? A.clips : rigAssets.clips;
   const model = SkeletonUtils.clone(A ? A.base : rigAssets.base);
   model.scale.setScalar(A ? A.scale : rigAssets.scale);
-  if (A && A.parts) attachParts(model, A.parts, F_BONE_REF[A.file]);
+  if (A && A.parts) { attachParts(model, A.parts, F_BONE_REF[A.file]); setupTail(f, model); }
   model.traverse(o => {
     if (!o.isMesh) return;
     if (o.isSkinnedMesh) rigidFace(o);
