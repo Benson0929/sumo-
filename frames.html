@@ -329,14 +329,16 @@ function findings(pct) {
     out.push(`<b>風險與回報：</b>重擊發生 ${st.su} 幀、打空要 ${st.ac + st.wh} 幀才能再動，是輕拳一段（${j1.ac + j1.wh} 幀）的 ${((st.ac + st.wh) / (j1.ac + j1.wh)).toFixed(1)} 倍；換來的是高量表時的擊飛力道（目前 ${st.kb.toFixed(1)}，輕拳一段只有 ${j1.kb.toFixed(1)}）。`);
     out.push(`<b>最快的招式：</b>${fastest[0].zh[0]}，發生 ${fastest[1].su} 幀。突進發生 ${da.su} 幀，但打空的破綻有 ${da.ac + da.wh} 幀。`);
     out.push('<b>集滿演出是獎勵，不是第二場對決：</b>4 秒內按 12 下，平均每秒 3 下就夠，被打的人完全不能反抗，所以把一欄打滿幾乎等於成立。真正的攻防在「誰先把對方的一欄打滿」；量表 6 秒沒被打就會開始減少，所以拉開距離休息是有效的防守。');
-    out.push('<b>沒有「被防」欄：</b>防禦和抓技目前在遊戲裡是停用的，所以沒有被防優勢。加回防禦之後，這張表會多一欄。');
+    out.push('<b>空中攻擊克制下墜重擊：</b>對手出下墜重擊時，你在空中出空中攻擊（起手或判定中），他的下墜重擊打不到你，而你的空中攻擊上下範圍會放寬、把他從空中打下來。太晚按（他已經砸到你）就沒用。');
+    out.push('<b>彈反（I）：</b>按下後 24 幀（0.4 秒）內被打到就成功——對手被彈開一小段、吃到自己那一擊一半的傷害（不會因此集滿一欄）。沒彈到要再等 21 幀（0.35 秒）才能動。彈不了的招式：輕拳第一、二段、空中攻擊、下墜重擊；被打中的硬直中不能按。按住不放的「防禦」和抓技仍然停用。');
     out.push('<b>命中優勢是名目值：</b>SUMO 是把人打飛的遊戲，對手被打中會飛出去，所以正優勢不一定追得上；它主要用來比較各招的回報。');
   } else {
     out.push(`<b>The jab chain is not a true combo:</b> Jab 1 gives ${j1.stun} frames of hitstun, but Jab 2 connects ${j1.ac + j1.re + j2.su} frames later, leaving a ${gap}-frame gap the opponent can roll out of. This is intentional for now; a guaranteed chain would need more hitstun or less recovery.`);
     out.push(`<b>Risk and reward:</b> Heavy starts in ${st.su} frames and a whiff costs ${st.ac + st.wh} frames, ${((st.ac + st.wh) / (j1.ac + j1.wh)).toFixed(1)}× Jab 1 (${j1.ac + j1.wh}); in return it launches far harder at high gauge (${st.kb.toFixed(1)} now, versus ${j1.kb.toFixed(1)} for Jab 1).`);
     out.push(`<b>Fastest move:</b> ${fastest[0].en[0]}, ${fastest[1].su} frames of start-up. Dash starts in ${da.su} frames but a whiff leaves you open for ${da.ac + da.wh}.`);
     out.push('<b>The row finisher is a reward, not a second contest:</b> 12 presses in 4 seconds is only 3 per second and the victim cannot resist, so filling a row almost always confirms it. The real fight is over who fills a row first; the gauge starts draining after 6 seconds without being hit, so backing off to rest is a valid defence.');
-    out.push('<b>No "on block" column:</b> shielding and grabs are currently disabled in the game. The column will be added when defence returns.');
+    out.push('<b>Air attack beats Slam:</b> while your air attack is starting or active, an opponent\'s Slam cannot hit you, and your air attack gets extra vertical range against a slamming opponent. Press too late (the Slam has already landed) and it does nothing.');
+    out.push('<b>Parry (I):</b> if a hit lands within 24 frames (0.4 s) of the press, the attacker is knocked back a short distance and takes half of that hit\'s damage (it never completes a row). A miss costs 21 more frames (0.35 s) before you can act. Cannot be parried: Jab 1, Jab 2, the air attack and the slam; it cannot be pressed during hitstun. Held shielding and grabs are still disabled.');
     out.push('<b>On-hit numbers are nominal:</b> SUMO launches the opponent away, so a positive number is not always a follow-up; use it to compare the reward of each move.');
   }
   return out;

@@ -45,6 +45,23 @@
   #tutBtn { position: fixed; left: 16px; bottom: 86px; z-index: 40; background: rgba(0,0,0,.55); color: #eee; border: 1px solid #444;
     border-radius: 4px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
   #tutBtn:hover { border-color: #d8261b; }
+  /* 選角：左下角按鈕＋選角畫面（自己和對手各選一隻） */
+  #pickBtn { position: fixed; left: 16px; bottom: 122px; z-index: 40; background: rgba(0,0,0,.55); color: #eee; border: 1px solid #444;
+    border-radius: 4px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+  #pickBtn:hover { border-color: #d8261b; }
+  #pick { display: none; position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.72); align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  #pick.on { display: flex; }
+  #pick .box { background: #161616; border: 1px solid #333; border-radius: 10px; padding: 20px 22px; width: min(560px, 100%); color: #eee; }
+  #pick .ttl { font-size: 18px; font-weight: 700; letter-spacing: .1em; margin-bottom: 14px; }
+  #pick .lab { font-size: 12px; opacity: .7; margin: 12px 0 6px; }
+  #pick .opts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  #pick .opts button { background: #262626; color: #eee; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 4px; font: inherit; font-size: 13px; cursor: pointer; }
+  #pick .opts button:hover { border-color: #888; }
+  #pick .opts button.sel { background: #d8261b; border-color: #d8261b; color: #fff; font-weight: 700; }
+  #pick .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+  #pick .acts button { background: #333; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  #pick .acts button.go { background: #d8261b; border-color: #d8261b; color: #fff; font-weight: 700; }
+  @media (max-width: 480px) { #pick .opts { grid-template-columns: repeat(2, 1fr); } }
   /* 教程卡片：畫面上方中央 */
   #tut { position: fixed; left: 50%; top: 58px; transform: translateX(-50%); z-index: 45; display: none; width: min(460px, 86vw);
     background: rgba(8,10,16,.78); border: 1px solid #3a3d47; border-radius: 12px; padding: 14px 18px 12px; text-align: center;
@@ -68,7 +85,7 @@
   #tutSkip { background: none; color: #bbb; border: 1px solid #555; border-radius: 5px; padding: 3px 9px; font: inherit; font-size: 11px; cursor: pointer; }
   #tutSkip:hover { color: #fff; border-color: #d8261b; }
   /* 平台預覽模式（網址加 ?view=platform）：只留平台，其他介面都收起來 */
-  body.viewonly #hud, body.viewonly #timer, body.viewonly #hint, body.viewonly #camRail, body.viewonly #tutBtn, body.viewonly #frameBtn,
+  body.viewonly #hud, body.viewonly #timer, body.viewonly #hint, body.viewonly #camRail, body.viewonly #tutBtn, body.viewonly #frameBtn, body.viewonly #pickBtn,
   body.viewonly #langBtn, body.viewonly #msg, body.viewonly #vig, body.viewonly #tut, body.viewonly #fps { display: none !important; }
   #viewHelp { display: none; position: fixed; left: 16px; top: 12px; z-index: 40; font-size: 12px; line-height: 1.8; opacity: .8; }
   body.viewonly #viewHelp { display: block; }
@@ -154,6 +171,13 @@
 <button id="langBtn" title="Language / 語言">EN</button>
 <button id="frameBtn" title="T" data-i18n="frameBtn"></button>
 <button id="tutBtn" data-i18n="tutBtn"></button>
+<button id="pickBtn" data-i18n="pickBtn"></button>
+<div id="pick"><div class="box">
+  <div class="ttl" data-i18n="pickTitle"></div>
+  <div class="lab" data-i18n="pickYou"></div><div class="opts" data-side="char"></div>
+  <div class="lab" data-i18n="pickFoe"></div><div class="opts" data-side="foe"></div>
+  <div class="acts"><button id="pickCancel" data-i18n="pickCancel"></button><button id="pickView" data-i18n="pickView"></button><button id="pickGo" class="go" data-i18n="pickGo"></button></div>
+</div></div>
 <div id="tut">
   <div class="tstep"></div>
   <div class="ttitle"></div>
@@ -191,7 +215,7 @@ const I18N = {
     hint: 'Esc 暫停　·　R 重新開始　·　T 幀數表',
     keysTitle: '操作說明',
     hintKeys: '<b>W A S D</b>　移動（同方向快按兩下 + J = 突進）<br><b>空白鍵</b>　跳躍（空中再按 = 上升技）<br><b>J</b>　攻擊（連按連段／空中迴旋踢）<br>' +
-              '<b>L</b>　重擊（按住蓄力，可用 W A S D 轉向；空中為下墜重擊）<br><b>K</b>　翻滾<br><b>P</b>　嘲諷（按住繼續跳）<br>' +
+              '<b>L</b>　重擊（按住蓄力，可用 W A S D 轉向；空中為下墜重擊）<br><b>K</b>　翻滾<br><b>I</b>　彈反（抓準被打到的瞬間按；J 前兩段和空中招彈不了）<br><b>P</b>　嘲諷（按住繼續跳）<br>' +
               '抓邊後自動攀爬，期間可先按 空白鍵／J／K 決定上來方式',
     roundWin: w => `${w === 'you' ? '你' : 'CPU'} 拿下這局`,
     matchWin: (w, a, b) => `${w === 'you' ? '你贏了' : 'CPU 獲勝'}　${a} － ${b}\n按 R 再來一場`,
@@ -207,16 +231,19 @@ const I18N = {
       dash:   ['突進攻擊', 'W A S D 的同一個方向快按兩下，接著馬上按 J，往那個方向衝過去攻擊。'],
       air:    ['空中迴旋踢', '按空白鍵跳起來，在空中按 J。'],
       slam:   ['下墜重擊', '按空白鍵跳起來，在空中按 L，往下砸。'],
+      parry:  ['彈反', '對手會蓄力出重擊。在他出拳、快打到你的瞬間按 I，把他彈開。太早或太晚按都會被打中。'],
       clash:  ['集滿演出・12 連擊', '對手的量表快滿了。先打中他把這一欄集滿，接著 4 秒內連按 J 或 L 共 12 下。'],
     },
     worst: '最慢', langBtn: 'EN', frameBtn: '幀數表', clashAtk: '連按 J 或 L',
+    pickBtn: '選角色', pickTitle: '選角色', pickYou: '你', pickFoe: '對手', pickGo: '開始對戰', pickView: '看我的角色', pickCancel: '取消',
+    charNames: ['道服', '第一個鬥士', '第二個鬥士', '第三個鬥士'],
   },
   en: {
     you: 'YOU', cpu: 'CPU', loading: 'Loading…', paused: 'PAUSED', resume: 'Press Esc to resume',
     hint: 'Esc Pause　·　R Restart　·　T Frame Data',
     keysTitle: 'Controls',
     hintKeys: '<b>W A S D</b>　Move (double-tap + J = Dash)<br><b>Space</b>　Jump (again in air = Rising Special)<br><b>J</b>　Attack (combo / air Spin Kick)<br>' +
-              '<b>L</b>　Heavy (hold to charge, steer with W A S D; in air = Slam)<br><b>K</b>　Roll<br><b>P</b>　Taunt (hold to keep dancing)<br>' +
+              '<b>L</b>　Heavy (hold to charge, steer with W A S D; in air = Slam)<br><b>K</b>　Roll<br><b>I</b>　Parry (press just before a hit lands; first two J hits and air moves cannot be parried)<br><b>P</b>　Taunt (hold to keep dancing)<br>' +
               'On the ledge you climb up automatically — press Space / J / K early to choose how',
     roundWin: w => `${w === 'you' ? 'YOU TAKE' : 'CPU TAKES'} THE ROUND`,
     matchWin: (w, a, b) => `${w === 'you' ? 'YOU WIN' : 'CPU WINS'}　${a} – ${b}\nPress R for a rematch`,
@@ -232,9 +259,12 @@ const I18N = {
       dash:   ['Dash Attack', 'Double-tap one of W A S D, then press J right away to dash that way and attack.'],
       air:    ['Air Spin Kick', 'Press Space to jump, then press J in the air.'],
       slam:   ['Slam', 'Press Space to jump, then press L in the air to plunge down.'],
+      parry:  ['Parry', 'The opponent will charge a Heavy. Press I just as the punch is about to land to knock them back. Too early or too late and you get hit.'],
       clash:  ['Row Full · 12-Hit Rush', 'The opponent\'s gauge is almost full. Hit them to fill the row, then mash J or L 12 times within 4 seconds.'],
     },
     worst: 'worst', langBtn: '中文', frameBtn: 'Frame Data', clashAtk: 'MASH J or L',
+    pickBtn: 'Characters', pickTitle: 'CHOOSE FIGHTERS', pickYou: 'You', pickFoe: 'Opponent', pickGo: 'Fight', pickView: 'View my fighter', pickCancel: 'Cancel',
+    charNames: ['Gi', 'Fighter 1', 'Fighter 2', 'Fighter 3'],
   },
 };
 let LANG = (() => {
@@ -264,6 +294,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
 
 // =====================================================================
 // 可調參數
@@ -271,10 +302,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const DEFAULTS = {
   accel: 43, damping: 4, airControl: 0.5, jumpPower: 9, airG: 28,
   gravity: 12.5, tiltGain: 0.05, tiltMax: 0.2, tiltStiff: 7, tiltDamp: 8, tiltKB: 1.5, landKick: 0.22,
-  bearPerEdge: 8, cornerHit: 60, collapseTime: 7, protectTime: 4, collapseAngle: 0.23, collapsePull: 12,
+  bearPerEdge: 5, cornerHit: 60, collapseTime: 7, protectTime: 4, collapseAngle: 0.23, collapsePull: 12,
   kbScale: 1, dmgScale: 1, hitstunScale: 1, blastDist: 22, ledgeWait: 3, ledgeSlow: 0.5, roundsToWin: 2,
   cpuLevel: 1,
   platW: 13.1, platD: 7.8, thick: 0.35, heriH: 0.03, tatamiWear: 0.14, tatamiMess: 0.6, matWave: 0.05, matDamage: 0.4,
+  openDark: 0, openPop: 0.5, colFlash: 1, colLean: 1, koFx: 1, koFxN: 12000, koFxTime: 3.4, koFxSpread: 1, bibSway: 1, bibFreq: 2.2, bibDamp: 0.35, skSway: 1, skFoot: 1, skFreq: 1.6, skDamp: 0.4, f1Oil: 0.12, f1Sss: 0.4, f1Sheen: 0.4, f1Leather: 0.35, f1Rim: 0.5, f1Fill: 0.35, f1Shadow: 0.65, f1Muscle: 1, f1Cav: 0.5, f1Env: 0.55, cvLight: 0.5, f1HatRed: 1, f1Pinky: 1, f1PinkySpread: 0, f1PinkyLift: 1, f1Vein: 0, f1Pore: 0,   /* 鬥士材質的數值：2026-11-20 使用者在角色預覽裡親自調好的 */
+  cineOn: 1, cineDist: 46, cineH: 4, cineKO: 0.55, koFocus: 2.0,
+  platInset: 0.8, wedgeH: 0.6, floorOn: 1, floorReflect: 0.55, floorKO: 1,
+  boxH: 36, boxLight: 1, boxWarm: 0.5, boxSoft: 0.35, boxAmbient: 0.45, underGlow: 0, bearSync: 0.85,
   brightness: 1.75, camY: 18.5, camDist: 27, camZoomMin: 0.38, animAmp: 1.35, resScale: 1.6, bloom: 0.28, autoRes: 1,
 };
 const CAM_Y_MIN = 1, CAM_Y_MAX = 60;
@@ -300,19 +335,55 @@ const GROUPS = [
     tiltGain: ['傾斜靈敏度', 0, 0.1, 0.005], tiltMax: ['最大傾斜', 0.05, 0.5, 0.01],
     tiltKB: ['順著斜坡打的擊飛加成', 0, 4, 0.1], gravity: ['斜面重力', 0, 25, 0.5],
     tiltStiff: ['反應速度', 4, 80, 1], tiltDamp: ['晃動阻尼', 0.5, 20, 0.5], landKick: ['落地／重擊壓平台', 0, 0.5, 0.01] }],
+  ['事件節奏', {
+    openDark: ['回合開始時全黑的秒數（0 = 不做）', 0, 2, 0.05], openPop: ['頂光亮起瞬間的閃亮程度', 0, 1.5, 0.05],
+    colFlash: ['塌陷時光板閃白光的強度', 0, 2, 0.05], colLean: ['塌陷時頂光往那一角偏的程度', 0, 2, 0.05] }],
+  ['出局點陣化', {
+    koFx: ['出局時身體碎成紅色點雲（1 = 開）', 0, 1, 1], koFxN: ['點的數量', 2000, 20000, 500], koFxTime: ['持續時間（秒）', 1, 5, 0.1], koFxSpread: ['散開的範圍', 0.3, 2.5, 0.05] }],
+  ['鬥士材質與光', {
+    cvLight: ['角色預覽的燈光亮度（只影響角色預覽）', 0.3, 1.5, 0.05], f1Env: ['環境反射強度', 0, 1.5, 0.05], f1HatRed: ['帽子皮革改成短褲的鮮紅（0 = 原本的深酒紅）', 0, 1, 0.05], f1Vein: ['血管（前臂、上臂、小腿、胸口）', 0, 3, 0.05], f1Pore: ['毛孔細紋', 0, 3, 0.05], f1Cav: ['肉縫陰影（肌肉之間的凹處變暗）', 0, 1.5, 0.05], f1Muscle: ['肌肉紋理深淺（凹凸貼圖強度）', 0, 4, 0.1], f1Oil: ['皮膚油光', 0, 1.5, 0.05], f1Sss: ['皮膚紅潤透光', 0, 1.5, 0.05], f1Sheen: ['毛／帆布的絨面光澤', 0, 1.5, 0.05], f1Leather: ['皮革亮光漆', 0, 1.5, 0.05],
+    f1Rim: ['輪廓光（只照鬥士）', 0, 3, 0.05], f1Fill: ['補光（只照鬥士）', 0, 1, 0.05], f1Shadow: ['身上自己的影子深淺（高解析）', 0, 1, 0.05] }],
+  ['翹小指', {
+    f1Pinky: ['翹小指（0 = 關、1 = 完全伸直翹起）', 0, 1, 0.05], f1PinkySpread: ['往外張開的角度（度）', 0, 60, 1], f1PinkyLift: ['往上翹的角度（度）', -20, 60, 1] }],
+  ['袴（裙子）晃動', {
+    skSway: ['身體動時裙襬甩動的幅度（0 = 不甩）', 0, 3, 0.05], skFoot: ['腳踢出去時把裙襬頂起來的程度', 0, 2, 0.05],
+    skFreq: ['彈性（越大越硬）', 0.6, 4, 0.1], skDamp: ['阻尼（越大越快停）', 0.1, 1, 0.05] }],
+  ['圍兜下襬晃動', {
+    bibSway: ['晃動幅度（0 = 不晃）', 0, 2.5, 0.05], bibFreq: ['彈性（越大越硬、擺得越快）', 0.8, 5, 0.1], bibDamp: ['阻尼（越大越快停）', 0.1, 1, 0.05] }],
+  ['事件鏡頭', {
+    cineOn: ['關鍵時刻切到低角度遠景（1 = 開）', 0, 1, 1], cineDist: ['遠景鏡頭距離', 25, 90, 1], cineH: ['遠景鏡頭高度（平台頂面 = 0）', -3, 12, 0.1],
+    cineKO: ['（點陣化關閉時）KO 後幾秒切過去', 0, 1.5, 0.05], koFocus: ['KO 後鏡頭跟著出局者看完溶解的秒數，之後切到贏家', 1, 4, 0.05] }],
+  ['鏡面地板與內收', {
+    floorOn: ['無邊的黑色鏡面地板（1 = 開）', 0, 1, 1], floorReflect: ['地板倒影的清楚程度', 0, 1, 0.05], floorKO: ['掉到地板就出局（1 = 開）', 0, 1, 1],
+    platInset: ['平台底部內收（扛擂台的人站的位置，越小越能斜）', 0.4, 1, 0.01], wedgeH: ['平台底部斜面的高度', 0, 2, 0.05] }],
+  ['光之盒', {
+    boxH: ['光板高度（往上出界線在 34）', 30, 60, 0.5], boxLight: ['頂光亮度', 0.2, 2.5, 0.05], boxWarm: ['光的暖度（0 = 冷白、1 = 暖黃白）', 0, 1, 0.05],
+    boxSoft: ['光圈邊緣柔和度', 0.05, 1, 0.05], boxAmbient: ['暗部亮度（越低越像 MV 的強烈明暗）', 0, 1.5, 0.05],
+    underGlow: ['平台下方的光暈', 0, 1.5, 0.05], bearSync: ['扛轎人動作的整齊度（下次載入生效）', 0, 1, 0.05] }],
   ['平台形狀', {
     platW: ['左右角長度（半長）', 6, 18, 0.1], platD: ['前後角長度（半長）', 4, 12, 0.1], thick: ['厚度', 0.05, 1, 0.05],
     matWave: ['草蓆波浪起伏的高度', 0, 0.1, 0.005], heriH: ['布邊凸起的高度', 0, 0.06, 0.002], tatamiWear: ['磨損的明顯程度（0 = 全新）', 0, 0.3, 0.01], tatamiMess: ['草蓆的雜亂程度（0 = 整齊平整）', 0, 1.5, 0.05], matDamage: ['每塊墊子平均幾處破損', 0, 4, 0.1] }],
 ];
 const P = { ...DEFAULTS };
+// 鬥士的材質預設是「自然」（接近 Mixamo 預覽：霧面、柔光、不額外加血管毛孔）—— 2026-11-21 使用者選定，三隻鬥士都一樣。
+// 網址加 ?look=tuned：改回之前在角色預覽裡手動調的那組（油光、亮光漆、輪廓光比較強）
+if (new URLSearchParams(location.search).get('look') === 'tuned') Object.assign(P, { f1Muscle: 3.1, f1Vein: 2, f1Pore: 1.55, f1Cav: 1.15, f1Oil: 0.35, f1Leather: 1.45, f1Sheen: 1.25, f1Sss: 0.65, f1Rim: 2.15, f1Fill: 0.55, f1Env: 1 });
+// 平台底部往內收成倒梯形，扛擂台的人站在內收後的位置、腳踩在鏡面地板上（離中心近，平台傾斜時頭頂的高低差小，撐得住）
+const VIEW_Q = new URLSearchParams(location.search).get('view');
+const UNDER_ON = VIEW_Q !== 'character';
+const UNDER = () => P.thick + (UNDER_ON ? P.wedgeH : 0);        // 平台頂面到底面（扛擂台的人手撐的地方）
+const BEAR_K = () => UNDER_ON ? P.platInset : 1;                 // 扛擂台的人站的位置：菱形縮放比例
 
 const BODY_R = 0.38;        // 身體互相擠開的半徑
+const sz = f => f.size || 1;   // 角色體型倍率（第一個鬥士 = F1_SIZE）：身體半徑、攻擊距離、拳頭伸到的位置都跟著放大
 const MAX_FALL = 13;
 const BLAST_DOWN = 12, BLAST_UP = 34;   // 往下、往上的出界線
 // 場外救援：人在平台外的空中（硬直結束後）水平移動更快、下墜更慢，飛很遠也有機會靠方向鍵＋上升技回來
 const OFF_AIR = 1.5, OFF_FALL = 9;
 // 出界：四個方向都是「離平台邊緣固定距離」，不再因為前後角比較短就特別容易出局
-const outOfBounds = (x, y, z) => edgeDist(x, z) < -P.blastDist || y < -BLAST_DOWN || y > BLAST_UP;
+const outOfBounds = (x, y, z) => edgeDist(x, z) < -P.blastDist || y < floorKOY() || y > BLAST_UP;
+// 掉到鏡面地板就出局（相撲：落地即輸）；地板關掉時照舊掉到深處才出局
+function floorKOY() { const FLOOR = window.__FLOOR; return (FLOOR && FLOOR.fit && P.floorOn >= 0.5 && P.floorKO >= 0.5) ? FLOOR.y + 0.12 : -BLAST_DOWN; }
 const EDGE_HOLD = 0.3;      // 走到邊緣時的保護時間（秒）
 const LEDGE_Y = -2.0;
 // 開場：兩人從天而降（下墜重擊的動作），落地重擊後接 Sumo High Pull 站穩，比賽才開始
@@ -330,6 +401,13 @@ const gaugeRow = f => Math.min(GAUGE_ROWS - 1, f.locked);   // 已經成立（�
 //   被打的人只能被動；每按一下，量表上那一欄就有一格變紅（一欄剛好 12 格 = 12 下）。時間到沒按滿 → 該欄退回一半（6 格）
 const CLASH_STARTUP = 0.09, CLASH_STOP = 0.09;   // 連段每一拳：起手時間、打到的停格（和 D 第三段同一級）
 const FIN_WIND = 0.42, FIN_SNAP = 0.07;    // 終結技：蓄力多久、灌出去多快（秒）
+// 彈反（I）：隨時可以按（被打中的硬直中除外）。按下後 PARRY_WIN 秒內被打到 = 成功：對手被彈開一小段、吃到自己這一擊一半的傷害；
+//   沒彈到就多 PARRY_MISS 秒不能動。J 的前兩段、跳 + J、跳 + L 彈不了，照常被打中
+const PARRY_WIN = 0.4, PARRY_MISS = 0.35, PARRY_DMG = 0.5, PARRY_PUSH = 7.5, PARRY_HOP = 3.2, PARRY_STUN = 0.45;
+const PARRY_RISE = 0.1, PARRY_PEAK = 0.5;  // 彈反動作：按下後幾秒擋到位；Inward Block 這段動作裡「手擋到最前面」的時間點（秒）
+const PARRY_SKIP = new Set(['jab1', 'jab2', 'air', 'slam']);
+const AIR_COUNTER_V = 0.9;               // 空中攻擊打「下墜重擊中的人」時，上下多放寬的範圍
+const PARRY_CPU = 4;                     // CPU 這個等級以上才會用彈反
 const CLASH_TIME = 4, CLASH_NEED = GAUGE_COLS, CLASH_SLOW = 0.2;
 function addDamage(t, dmg) { t.pct = Math.min(GAUGE_MAX, (t.locked + 1) * ROW_PTS, t.pct + dmg); t.calm = 0; }   // 最多加到「目前這一欄剛好集滿」
 
@@ -401,6 +479,8 @@ let shadowTick = 0;
 let glowFx = 0;                          // 畫面上還活著的發光特效數量
 let postActive = false, postWarm = false;   // 這一格有沒有走後製；後製是否已經預先跑過一次（避免第一次命中時卡一下）
 function draw() {
+  stepKoFx(); stepStage();
+  renderF1Shadows();   // 鬥士自己的高解析陰影（要在主陰影的更新旗標設定之前畫，不然會被清掉）
   renderer.shadowMap.needsUpdate = (shadowTick++ & 1) === 0;   // 陰影每兩格更新一次
   if (!(P.bloom > 0.01) || (glowFx <= 0 && postWarm)) { postActive = false; renderer.render(scene, camera); return; }
   postActive = glowFx > 0; postWarm = true;
@@ -419,8 +499,8 @@ function draw() {
 }
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x070b14);          // 道場：深藍黑的空間
-scene.fog = new THREE.Fog(0x070b14, 42, 105);
+scene.background = new THREE.Color(0x000000);          // 光之盒：全黑的虛空
+scene.fog = new THREE.Fog(0x000000, 42, 105);
 
 const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
 const CAM_AZIM = 45 * Math.PI / 180;
@@ -432,7 +512,7 @@ function updateCamBase() {
   camLookY = Math.max(0, 2.4 - (elevDeg - 20) * 0.1);
 }
 
-const hemi = new THREE.HemisphereLight(0xd4def5, 0x14161e, 1);     // 偏冷的環境光（參考道場畫面）
+const hemi = new THREE.HemisphereLight(0xfff3e6, 0x0a0806, 1);     // 光之盒：光從正上方來，地面幾乎不反光
 const fill = new THREE.DirectionalLight(0xe4ecff, 1);
 fill.position.set(12, 8, 12);
 scene.add(hemi, fill);
@@ -446,17 +526,28 @@ scene.add(spot, spot.target);
 // 所有材質（榻榻米、道服、皮膚）都會反射到它 → 暗部不會死黑、表面有柔和的光澤，比較接近參考的遊戲畫面
 {
   const env = new THREE.Scene();
-  const room = new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: 0x141c2c, side: THREE.BackSide }));
+  const room = new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: 0x050505, side: THREE.BackSide }));
   room.position.y = 12; env.add(room);
-  const sky = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 3.2, 3.4), side: THREE.DoubleSide }));
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.4, 3.15, 2.85), side: THREE.DoubleSide }));
   sky.rotation.x = Math.PI / 2; sky.position.y = 26; env.add(sky);
   const pm = new THREE.PMREMGenerator(renderer);
   scene.environment = pm.fromScene(env, 0.04).texture;
   pm.dispose();
 }
+// 光之盒：平台正上方一片和平台一樣大的發光板，是整個場景唯一的光源（頂光從光板中心往下，均勻照亮整個平台、邊緣外立刻變黑）
+const boxCol = new THREE.Color();
+const _IS_CV = new URLSearchParams(location.search).get('view') === 'character';
 function applyLighting() {
-  const b = P.brightness;
-  spot.intensity = 2400 * b; hemi.intensity = 0.25 * b; fill.intensity = 0.2 * b;
+  const b = P.brightness * (_IS_CV ? P.cvLight : 1), H = P.boxH,   // b：角色預覽（白底）另外調暗
+  R = Math.max(P.platW, P.platD) * 1.02;
+  boxCol.setRGB(1, 0.93 - 0.1 * P.boxWarm, 0.86 - 0.24 * P.boxWarm);
+  spot.color.copy(boxCol); spot.position.set(0, H, 0); spot.target.position.set(0, 0, 0); spot.target.updateMatrixWorld();
+  spot.decay = 0; spot.distance = 0;
+  spot.angle = Math.atan(R / H) * (1 + 0.5 * P.boxSoft); spot.penumbra = P.boxSoft;
+  spot.intensity = 4.6 * b * P.boxLight;
+  spot.shadow.radius = 4; spot.shadow.camera.near = H - 30; spot.shadow.camera.far = H + 20; spot.shadow.camera.updateProjectionMatrix();
+  hemi.intensity = 0.25 * b * P.boxAmbient; fill.intensity = 0.2 * b * P.boxAmbient; fill.color.copy(boxCol);
+  if (window.__boxReady) updateLightBox();
 }
 applyLighting();
 
@@ -686,6 +777,8 @@ function loadTatami() {
 const slab = new THREE.Mesh(undefined, slabSide);              // 平台本體（在墊子底下）
 slab.receiveShadow = slab.castShadow = true;
 platform.add(slab);
+const slabWedge = new THREE.Mesh(undefined, new THREE.MeshStandardMaterial({ color: 0x3a2a1e, roughness: 0.7, metalness: 0.05, side: THREE.DoubleSide }));   // 平台底下往內收的斜面（深色木頭）
+slabWedge.castShadow = slabWedge.receiveShadow = true; platform.add(slabWedge);
 const slabGap = new THREE.Mesh(undefined, slabDark), slabBeam = new THREE.Mesh(undefined, slabSide);   // 內縮的暗層、底樑（含一排樑頭）
 for (const m of [slabGap, slabBeam]) { m.receiveShadow = m.castShadow = true; platform.add(m); }
 const matsMesh = new THREE.Mesh(undefined, slabTop);           // 25 塊墊子合成一個物件（一次繪製）
@@ -902,9 +995,156 @@ function buildSlab() {
     mg.setAttribute('position', new THREE.BufferAttribute(P3, 3)); mg.setAttribute('normal', new THREE.BufferAttribute(N3, 3)); mg.setAttribute('uv', new THREE.BufferAttribute(U2, 2));
     set(slabBeam, mg);
   }
+  if (slabWedge.geometry) slabWedge.geometry.dispose();
+  if (UNDER_ON && P.wedgeH > 0.01) {
+    const gA = Math.hypot(1 / P.platW, 1 / P.platD), k0 = 1 - 0.09 * gA, k1 = BEAR_K(), yA = -P.thick, yB = -UNDER();
+    const ring = (k, y) => [[P.platW, 0], [0, -P.platD], [-P.platW, 0], [0, P.platD]].map(([u, v]) => { const [x, z] = fromUV(u * k, v * k); return [x, y, z]; });
+    const A = ring(k0, yA), Bq = ring(k1, yB), pos = [];
+    const quad = (a, b, c, d) => pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+    for (let e = 0; e < 4; e++) { const j2 = (e + 1) % 4; quad(A[e], Bq[e], Bq[j2], A[j2]); }
+    quad(Bq[0], Bq[3], Bq[2], Bq[1]);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+    slabWedge.geometry = g; slabWedge.visible = true;
+  } else slabWedge.visible = false;
   buildMats();
 }
 buildSlab();
+
+// ---- 光之盒：光板（在往上出界線之上，鏡頭從上往下看時大多在畫面外）、平台邊緣一圈金屬框、平台下方的光暈 ----
+const BOX = { group: new THREE.Group() };
+scene.add(BOX.group);
+{
+  BOX.panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, fog: false, side: THREE.DoubleSide });
+  BOX.frameMat = new THREE.MeshStandardMaterial({ color: 0x8c857c, metalness: 1, roughness: 0.28 });
+  BOX.panel = new THREE.Mesh(undefined, BOX.panelMat); BOX.group.add(BOX.panel);
+  BOX.panelBack = new THREE.Mesh(undefined, new THREE.MeshStandardMaterial({ color: 0x0b0b0c, roughness: 0.6, metalness: 0.4 })); BOX.group.add(BOX.panelBack);
+  BOX.rim = new THREE.Mesh(undefined, BOX.frameMat); BOX.rim.castShadow = false; BOX.rim.receiveShadow = true; platform.add(BOX.rim);
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(255,236,210,0.55)'); gr.addColorStop(0.45, 'rgba(255,220,180,0.18)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  BOX.glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false }));
+  BOX.glow.rotation.x = -Math.PI / 2; BOX.group.add(BOX.glow);
+}
+// 菱形（u, v）的四個角，縮放 k
+const rhombusPts = k => [[P.platW * k, 0], [0, -P.platD * k], [-P.platW * k, 0], [0, P.platD * k]].map(([u, v]) => fromUV(u, v));
+function rhombusGeo(k, y) {
+  const shape = new THREE.Shape();
+  rhombusPts(k).forEach(([x, z], i) => i ? shape.lineTo(x, -z) : shape.moveTo(x, -z));
+  const g = new THREE.ShapeGeometry(shape); g.rotateX(-Math.PI / 2); g.translate(0, y, 0); return g;
+}
+function buildLightBox() {
+  for (const m of [BOX.panel, BOX.panelBack, BOX.rim]) if (m.geometry) m.geometry.dispose();
+  const H = P.boxH;
+  BOX.panel.geometry = rhombusGeo(1.02, 0); BOX.panel.geometry.rotateX(Math.PI); BOX.panel.position.y = H;   // 發光面朝下
+  const back = new THREE.ExtrudeGeometry((() => { const sh = new THREE.Shape(); rhombusPts(1.06).forEach(([x, z], i) => i ? sh.lineTo(x, -z) : sh.moveTo(x, -z)); return sh; })(), { depth: 0.8, bevelEnabled: false });
+  back.rotateX(-Math.PI / 2); back.translate(0, H + 0.02, 0); BOX.panelBack.geometry = back;
+  // 平台頂面邊緣一圈細金屬框
+  const pts = rhombusPts(1.0), parts = [];
+  for (let e = 0; e < 4; e++) {
+    const [x1, z1] = pts[e], [x2, z2] = pts[(e + 1) % 4], L = Math.hypot(x2 - x1, z2 - z1);
+    const bx = new THREE.BoxGeometry(L + 0.12, 0.09, 0.09);
+    bx.rotateY(-Math.atan2(z2 - z1, x2 - x1)); bx.translate((x1 + x2) / 2, 0.03, (z1 + z2) / 2);
+    parts.push(bx.toNonIndexed());
+  }
+  let n = 0; for (const p of parts) n += p.attributes.position.count;
+  const P3 = new Float32Array(n * 3), N3 = new Float32Array(n * 3); let o = 0;
+  for (const p of parts) { P3.set(p.attributes.position.array, o * 3); N3.set(p.attributes.normal.array, o * 3); o += p.attributes.position.count; }
+  const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(P3, 3)); rg.setAttribute('normal', new THREE.BufferAttribute(N3, 3));
+  BOX.rim.geometry = rg;
+  updateLightBox();
+}
+function updateLightBox() {
+  BOX.panel.position.y = P.boxH;
+  BOX.panelMat.color.copy(boxCol).multiplyScalar(2.2 * P.boxLight);
+  BOX.glow.position.y = window.__FLOOR && window.__FLOOR.group.visible ? window.__FLOOR.y + 0.03 : -P.thick - 7;
+  BOX.glow.scale.setScalar(Math.max(P.platW, P.platD) * 3.2);
+  BOX.glow.material.opacity = P.underGlow; BOX.glow.visible = P.underGlow > 0.001;
+  BOX.glow.material.color.copy(boxCol);
+}
+window.__boxReady = true;
+buildLightBox();
+
+// ---- 無邊的黑色鏡面地板：扛擂台的人腳踩的地方。倒映擂台、光和人群；邊緣往四周淡進黑暗 ----
+const FLOOR = { y: -3.6, fit: false, group: new THREE.Group() };
+window.__FLOOR = FLOOR;
+scene.add(FLOOR.group);
+{
+  FLOOR.mirror = new Reflector(new THREE.PlaneGeometry(400, 400), { clipBias: 0.003, textureWidth: 1024, textureHeight: 1024, color: 0x8a8a8a });
+  FLOOR.mirror.rotation.x = -Math.PI / 2; FLOOR.group.add(FLOOR.mirror);
+  // 蓋在鏡面上的一層黑：中間淡、往外越來越黑 → 倒影只在擂台附近看得到，地板邊緣消失在黑暗裡
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.16, 'rgba(0,0,0,0.25)'); gr.addColorStop(0.42, 'rgba(0,0,0,0.85)'); gr.addColorStop(0.7, 'rgba(0,0,0,1)');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  FLOOR.veilTex = new THREE.CanvasTexture(c);
+  FLOOR.veil = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ map: FLOOR.veilTex, transparent: true, depthWrite: false, fog: false, color: 0x000000 }));
+  FLOOR.veil.rotation.x = -Math.PI / 2; FLOOR.veil.position.y = 0.01; FLOOR.veil.renderOrder = 1; FLOOR.group.add(FLOOR.veil);
+  // 另一層：整體壓暗（倒影清楚程度）
+  FLOOR.dim = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, fog: false }));
+  FLOOR.dim.rotation.x = -Math.PI / 2; FLOOR.dim.position.y = 0.005; FLOOR.dim.renderOrder = 1; FLOOR.group.add(FLOOR.dim);
+}
+function floorApply() {
+  const on = P.floorOn >= 0.5 && VIEW_Q !== 'character';
+  FLOOR.group.visible = on;
+  FLOOR.dim.material.opacity = 1 - P.floorReflect;
+  FLOOR.group.position.y = FLOOR.y;
+  // 光之盒的光暈貼在地板上
+  if (BOX && BOX.glow) BOX.glow.position.y = on ? FLOOR.y + 0.03 : -P.thick - 7;
+}
+// 地板高度 = 平台水平時扛擂台的人腳踩的地方（用道服扛人的身材算，再往上一點：平常膝蓋微彎，往上往下都有空間）
+FLOOR.REST = -0.08;                // 平常站直、膝蓋微彎（越小站得越直、平台越高）
+function floorFit() {
+  if (FLOOR.fit || !giBear.ready || !bearers.length || !bearers[0].gi) return;
+  const R = giBear.rest; let sum = 0;
+  for (const b of bearers) {
+    const s = b.gi.s, L = (R.upper + R.fore) * s, half = R.shoulderX * s * 1.15;
+    const horiz = Math.hypot(0.24, half - R.shoulderX * s), vert = Math.sqrt(Math.max(0.01, (0.9 * L) ** 2 - horiz ** 2));
+    sum += -UNDER() - (R.shoulderY * s - 0.08 + vert);
+  }
+  FLOOR.y = sum / bearers.length + FLOOR.REST;
+  const s0 = bearers.reduce((a, b) => a + b.gi.s, 0) / bearers.length, legLen = (R.thigh + R.shin) * s0;
+  FLOOR.U = 0.12;                                             // 平台能抬多高：手臂伸直、踮腳
+  FLOOR.D = legLen * 0.42 - FLOOR.REST + 0.28;                // 能壓多低：蹲低＋手肘彎
+  FLOOR.Dcol = legLen * 0.72 - FLOOR.REST + 0.2;              // 塌陷那一角：跪下
+  FLOOR.fit = true;
+  floorApply();
+}
+// 畫面上的平台傾斜：遊戲手感（斜坡重力、滑動）照 tilt 算；畫面只斜到扛擂台的人撐得住的範圍，塌陷那一角放寬
+const _pvC = [[1, 0], [0, -1], [-1, 0], [0, 1]], _pvPts = [];
+let pvRx = 0, pvRz = 0, pvRy = 0;
+function platformVisual(dt) {
+  let rx = tilt.x, rz = tilt.z, ry = tilt.y;
+  if (FLOOR.fit && P.floorOn >= 0.5) {
+    _pvPts.length = 0;
+    const collapsing = corners.some(c => c.down > 0);
+    for (const b of bearers) {
+      const [c, cw] = bearerCorner(b), down = c && c.down > 0 && cw > 0.25;
+      _pvPts.push(b.x, b.z, down ? FLOOR.Dcol : FLOOR.D, collapsing ? 1.2 : FLOOR.U);
+    }
+    const kb = BEAR_K(), tipB = -UNDER() - FLOOR.y - 0.06;   // 斜面底面的角：最多壓到地板
+    for (const [cu, cv] of _pvC) { const [x, z] = fromUV(cu * P.platW * kb, cv * P.platD * kb); _pvPts.push(x, z, tipB, 99); }
+    { const tipT = -P.thick - FLOOR.y - 0.06; for (const [cu, cv] of _pvC) { const [x, z] = fromUV(cu * P.platW, cv * P.platD); _pvPts.push(x, z, tipT, 99); } }   // 平台外緣：不能插進地板
+    const sx = Math.sin(rx), cx = Math.cos(rx), sz = Math.sin(rz), ry0 = ry * 0.3;
+    const range = f => {
+      let lo = -1e9, hi = 1e9;
+      for (let i = 0; i < _pvPts.length; i += 4) {
+        const h = f * (_pvPts[i] * sz * cx - _pvPts[i + 1] * sx);
+        lo = Math.max(lo, -_pvPts[i + 2] - h); hi = Math.min(hi, _pvPts[i + 3] - h);
+      }
+      return [lo, hi];
+    };
+    let f = 1, [lo, hi] = range(1);
+    if (lo > hi) { let a = 0, bb = 1; for (let k = 0; k < 14; k++) { const m = (a + bb) / 2, [l, h] = range(m); if (l <= h) a = m; else bb = m; } f = a; [lo, hi] = range(f); }
+    rx *= f; rz *= f; ry = Math.min(hi, Math.max(lo, ry0));
+    const k = 1 - Math.exp(-dt * 14);
+    pvRx += (rx - pvRx) * k; pvRz += (rz - pvRz) * k; pvRy += (ry - pvRy) * k;
+    rx = pvRx; rz = pvRz; ry = pvRy;
+  }
+  platform.rotation.set(rx, 0, rz);
+  platform.position.y = ry;
+}
+floorApply();
 loadTatami();
 
 // =====================================================================
@@ -992,7 +1232,7 @@ function makeFighter(o) {
     pct: 0, calm: 0, locked: 0, wins: 0, out: false, dead: 0,
     airJumps: 1, specUsed: false, dodgeUsed: false, helpless: false,
     move: null, hitstun: 0, dizzy: 0, lag: 0, invuln: 0,
-    shield: 100, shielding: false, shieldStun: 0,
+    shield: 100, shielding: false, shieldStun: 0, parry: null, parryOk: 0,
     roll: null, dodge: null, ledge: null, ledgeCd: 0, grabbedBy: null,
     walk: 0, spin: 0, hitT: 0, hitX: 0, hitZ: 0, landT: 0, trailT: 0, opp: null,
     edgeHold: 0, ledgeCount: 0, closeCall: false,
@@ -1142,7 +1382,7 @@ function buildBearers() {
     const n = Math.max(2, Math.round(P.bearPerEdge * Math.hypot(ub - ua, vb - va) / avgLen));   // 長邊人多、短邊人少
     for (let i = 0; i < n; i++) {
       const t = (i + 0.5) / n;
-      const [x, z] = fromUV(ua + (ub - ua) * t, va + (vb - va) * t);
+      const [x0, z0] = fromUV(ua + (ub - ua) * t, va + (vb - va) * t), x = x0 * BEAR_K(), z = z0 * BEAR_K();   // 站在內收後的斜面底下
       const b = makeBearer();
       b.x = x - nx * 0.05; b.z = z - nz * 0.05;
       b.u = toU(b.x, b.z); b.v = toV(b.x, b.z);
@@ -1183,6 +1423,7 @@ function hurtBearers(x, z, amt) {
   }
 }
 function collapse(c) {
+  STAGE.flash = P.colFlash;                       // 光板閃一下冷白光
   c.p = 100; c.down = P.collapseTime;
   // 瞬間往那一角倒：直接給平台一個很大的角速度
   tilt.vz += -c.dx * P.collapseAngle * 14;
@@ -1268,7 +1509,7 @@ function animateBearers(dt) {
     const hipY = FOOT_H + 2 * LEG * Math.cos(crouch);
     const lean = down ? 0.55 : 0.05;
     const armUp = 0.06 + 0.44 * Math.cos(lean) + UPPER_ARM + FORE_ARM * Math.cos(elbow);
-    platform.localToWorld(_bp.set(b.x, -P.thick, b.z));
+    platform.localToWorld(_bp.set(b.x, -UNDER(), b.z));
     b.root.position.set(_bp.x, _bp.y - (hipY + armUp) * b.sc, _bp.z);
     b.root.rotation.y = b.yaw;
     r.legs.forEach(l => {
@@ -1410,7 +1651,7 @@ function attachGiBearers() {
     });
     giGroup.add(root);
     b.gi = { root, model, bones: giFindBones(model), mat, s,
-      phase: Math.random() * 100, sway: 0.5 + Math.random() * 0.6, look: 0, lookV: 0 };
+      phase: (1 - P.bearSync) * Math.random() * 100, sway: 0.8 + (1 - P.bearSync) * (Math.random() - 0.5) * 0.6, look: 0, lookV: 0 };   // 整齊度越高，所有人呼吸、換腳、東張西望的節奏越一致
     b.jolt = 0; b.joltV = 0; b.drop = 0.1;
   }
   for (const k in bearInst) bearInst[k].mesh.visible = false;   // 隱藏方塊人
@@ -1443,7 +1684,7 @@ function poseGiBearer(b, dt, t, R) {
   const stress = c ? Math.min(1, (c.down > 0 ? 1 : c.p / 100) * cw * 1.4) : 0;
   // ---- 平台底面的接觸點（世界座標） ----
   const inset = 0.28;
-  platform.localToWorld(_cw.set(b.x - b.nx * inset, -P.thick, b.z - b.nz * inset));
+  platform.localToWorld(_cw.set(b.x - b.nx * inset, -UNDER(), b.z - b.nz * inset));
   _fw.set(b.nx, 0, b.nz).transformDirection(platform.matrixWorld); _fw.y = 0; _fw.normalize();   // 面向（往外）
   _lf.crossVectors(UP, _fw).normalize();                                                          // 角色的左手邊
   const half = R.shoulderX * s * 1.15;
@@ -1456,16 +1697,17 @@ function poseGiBearer(b, dt, t, R) {
   const vert = Math.sqrt(Math.max(0.01, (0.9 * L) ** 2 - horiz ** 2));
   const legLen = (R.thigh + R.shin) * s;
   // 平台這一邊被壓低／抬高了多少：小的部分用蹲低、站直吸收（看得到的反應），超過的部分整個人跟著平台移動（背景暗看不出地面）
-  const delta = _cw.y + P.thick;
+  const delta = _cw.y + UNDER();
   const absorbed = Math.max(-0.36 * legLen, Math.min(0.07, delta * 0.55));
-  const ground = -P.thick - (sh - 0.08 + vert) + (delta - absorbed);   // 平台水平時：膝蓋微彎、手肘微彎
+  const ground = FLOOR.fit ? FLOOR.y : -UNDER() - (sh - 0.08 + vert) + (delta - absorbed);   // 有地板：腳固定踩在地板上   // 平台水平時：膝蓋微彎、手肘微彎
   const need = _cw.y - ground;                               // 手要到的高度（離地）
   // 被震：彈簧（往下沉再彈回）
   b.joltV += (-90 * b.jolt - 11 * b.joltV) * dt;
   b.jolt += b.joltV * dt;
   // 目標蹲低量：手搆不到就蹲低、撐得很吃力再多蹲一點；塌陷時跪下
   let dropT = (sh + 0.93 * vert) - need + stress * 0.14 + Math.max(0, b.jolt);
-  dropT = down ? legLen * 0.62 : Math.min(legLen * 0.42, Math.max(0.02, dropT));
+  dropT = FLOOR.fit ? Math.min(legLen * 0.75, Math.max(down ? legLen * 0.4 : 0.02, dropT))     // 腳不能動：平台壓多低就蹲多低，塌陷那一角跪下
+    : down ? legLen * 0.62 : Math.min(legLen * 0.42, Math.max(0.02, dropT));
   b.drop += (dropT - b.drop) * (1 - Math.exp(-dt * (down ? 9 : 12)));
   const lift = Math.max(0, -b.jolt) + Math.max(0, need - (sh + 0.98 * L) + b.drop * 0) * 0;   // 往上頂時踮腳
   // ---- 重置姿勢 ----
@@ -1495,7 +1737,7 @@ function poseGiBearer(b, dt, t, R) {
   for (const side of ['Left', 'Right']) {
     const sg = side === 'Left' ? 1 : -1;
     const kneel = down && side === 'Left';
-    const wide = 0.04 + stress * 0.07 + (down ? 0.04 : 0);
+    const wide = (FLOOR.fit ? 0.0 : 0.04) + stress * 0.07 + (down ? 0.04 : 0);   // 有地板：雙腳與肩同寬站直
     _ft.set(0, 0, 0);
     root.localToWorld(_ft.set(R.foot[side === 'Left' ? 'L' : 'R'].x * s * (R.facing < 0 ? -1 : 1) + sg * wide, footY + (kneel ? 0.02 : 0), kneel ? -0.42 : 0.04 * sg * Math.sin(ph * 0.3)));
     _pole.copy(_fw).addScaledVector(_lf, sg * 0.25);
@@ -1665,8 +1907,8 @@ const human = makeController();
 // W：地面 = 跳躍，空中 = 上升技（每次離地一次）；D：攻擊；A：重擊
 // S：翻滾閃避（往方向鍵的方向；沒按方向就往面朝的方向）
 // S：翻滾閃避（往按著的方向；沒按就往面朝的方向）；快速按兩下方向鍵 + D = 突進
-// 按鍵配置：W A S D 移動（方向鍵也可以）、空白鍵 跳躍、J 攻擊、K 翻滾、L 重擊、P 嘲諷
-const KEYMAP = { Space: 'jump', KeyJ: 'atk', KeyL: 'strong', KeyK: 'roll', KeyP: 'taunt' };
+// 按鍵配置：W A S D 移動（方向鍵也可以）、空白鍵 跳躍、J 攻擊、K 翻滾、L 重擊、I 彈反、P 嘲諷
+const KEYMAP = { Space: 'jump', KeyJ: 'atk', KeyL: 'strong', KeyK: 'roll', KeyP: 'taunt', KeyI: 'parry' };
 const DIRKEYS = { KeyW: [0, -1], KeyS: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };   // [螢幕右方, 螢幕下方]
 const ARROWS = Object.keys(DIRKEYS);
 const tap = { code: '', time: -1e9, ready: -1e9, dir: '' };
@@ -1711,7 +1953,7 @@ function updateHuman(dt) {
   if (gp) {
     const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, mag = Math.hypot(ax, ay);
     if (mag > 0.25) { sx = ax; sy = ay; }
-    const map = { 0: 'jump', 2: 'atk', 3: 'strong', 1: 'roll', 5: 'taunt' };
+    const map = { 0: 'jump', 2: 'atk', 3: 'strong', 1: 'roll', 5: 'taunt', 4: 'parry' };   // L1 = 彈反
     for (const i in map) {
       const down = !!(gp.buttons[i] && gp.buttons[i].pressed);
       if (down && !padPrev.b[i]) human.press(map[i], map[i] === 'roll' ? 0.3 : 0.15);
@@ -1733,7 +1975,21 @@ function updateAI(dt) {
   const c = ai, me = cpu, o = me.opp, s = (P.cpuLevel - 1) / 8;
   const e = Math.max(0, 1 - (P.cpuLevel - 1) / 3);   // 新手讓分：等級 1 = 1、等級 2 = 0.67、等級 3 = 0.33、等級 4 以上 = 0（和原本一樣強）
   c.tick(dt);
-  if (tut.active) { c.mx = c.mz = 0; c.strongHeld = false; c.shieldHeld = false; c.buf = {}; c.chargeT = 0; c.shieldT = 0; return; }   // 教程中：對手站著不動當沙包
+  if (tut.active) {                        // 教程中：對手站著不動當沙包
+    c.mx = c.mz = 0; c.shieldHeld = false; c.shieldT = 0;
+    const ts = TUT_STEPS[tut.step];
+    if (ts && ts.id === 'parry' && tut.phase === 'run' && game.state === 'play' && !game.clash) {
+      // 彈反這一步：沙包走到玩家面前，用固定的節奏出「蓄力 0.6 秒的重擊」——看得到蓄力發光，出拳的時機每次都一樣，好抓
+      c.chargeT -= dt; c.strongHeld = c.chargeT > 0; c.tutT = (c.tutT ?? 1.2) - dt;
+      const dx = o.x - me.x, dz = o.z - me.z, d = Math.hypot(dx, dz) || 1;
+      if (me.ground && !me.move && me.hitstun <= 0 && me.lag <= 0 && me.dead <= 0 && !me.out) {
+        if (d > 1.05) { c.mx = dx / d; c.mz = dz / d; }
+        else if (c.tutT <= 0 && o.ground && !(o.hitstun > 0) && !o.parry) { me.yaw = Math.atan2(dx, dz); c.press('strong'); c.chargeT = 0.6; c.strongHeld = true; c.tutT = 2.0; }
+      }
+      return;
+    }
+    c.strongHeld = false; c.buf = {}; c.chargeT = 0; c.tutT = 1.2; return;
+  }
   c.chargeT -= dt; c.shieldT -= dt;
   c.strongHeld = c.chargeT > 0;
   c.shieldHeld = c.shieldT > 0;
@@ -1807,7 +2063,18 @@ function updateAI(dt) {
   if (c.airSlam > 0) { c.airSlam -= dt; if (c.airSlam <= 0 && !me.ground) c.press('strong'); }
 
   const oOff = o.ledge || (!o.ground && (rhombus(o.x, o.z) > 1 || o.y < 0));
-  const canDecide = me.ground && !me.move && me.hitstun <= 0 && me.lag <= 0 && me.dizzy <= 0;
+  const canDecide = me.ground && !me.move && me.hitstun <= 0 && me.lag <= 0 && me.dizzy <= 0 && !me.parry;
+  // 彈反（等級 PARRY_CPU 以上）：對手出了彈得掉的招、快打到時按；等級越高越常彈。對手按住蓄力重擊時只能用猜的，常常會被騙
+  if (P.cpuLevel >= PARRY_CPU && canDecide && o.move && o.move.def.dmg && !PARRY_SKIP.has(o.move.id) && Math.hypot(o.x - me.x, o.z - me.z) < o.move.def.reach * sz(o) + BODY_R * sz(me) + 0.7) {
+    const m = o.move, chance = 0.15 + 0.5 * (P.cpuLevel - PARRY_CPU) / (9 - PARRY_CPU);
+    if (m.phase === 'startup' && m.def.startup - m.pt <= 0.11 && c.parrySeen !== m.uid) {
+      c.parrySeen = m.uid;
+      if (Math.random() < chance) { c.press('parry'); c.mx = c.mz = 0; return; }
+    } else if (m.phase === 'charge' && m.pt > 0.25 && c.parryGuess !== m.uid && Math.random() < dt * 0.6) {
+      c.parryGuess = m.uid;
+      if (Math.random() < chance) { c.press('parry'); c.mx = c.mz = 0; return; }
+    }
+  }
 
   if (oOff) {                            // 守邊：站在對手要回來的邊緣內側
     const E = edgeInfo(o.x, o.z);
@@ -2012,7 +2279,7 @@ function applyHit(a, t, d, dirx, dirz, charge) {
   if (t.ground) { if (t.vy > 1.5) { t.ground = false; t.y = 0.02; } else t.vy = 0; }
   t.hitstun = d.hs ?? Math.min(1.6, 0.1 + kb * 0.035 * P.hitstunScale);
   if (t.move && t.move.id === 'hold') releaseGrab(t);
-  t.move = null; t.roll = null; t.dodge = null; t.ledge = null; t.shielding = false; t.helpless = false;
+  t.move = null; t.roll = null; t.dodge = null; t.ledge = null; t.shielding = false; t.helpless = false; t.parry = null;
   t.specUsed = false;                    // 被打飛後一定還有一次上升技可以用來回場
   t.launched = true;                     // 被打飛中（落地或抓邊後取消）：鏡頭用來判斷要不要轉成側面視角
   t.yaw = Math.atan2(-dirx, -dirz);
@@ -2037,7 +2304,7 @@ function applyHit(a, t, d, dirx, dirz, charge) {
 
 function startClash(a, v) {
   game.clash = { a, v, t: 0, hits: 0, presses: 0, id: ++moveSeq, cpuT: 0, ctl: makeController(), yaw0: camYaw };
-  for (const f of [a, v]) { if (f.move && f.move.id === 'hold') releaseGrab(f); f.roll = null; f.dodge = null; f.ledge = null; f.shielding = false; f.hitstun = 0; f.lag = 0; }
+  for (const f of [a, v]) { if (f.move && f.move.id === 'hold') releaseGrab(f); f.roll = null; f.dodge = null; f.ledge = null; f.shielding = false; f.parry = null; f.hitstun = 0; f.lag = 0; }
   v.move = null; v.vx = v.vz = v.vy = 0; v.helpless = false; v.launched = false;
   v.yaw = Math.atan2(a.x - v.x, a.z - v.z); v.hitSeq++; v.hitKind = 'heavy'; v.hitSide = 0;
   a.move = null;
@@ -2067,7 +2334,7 @@ function stepClash(dt) {
   let key = null;
   if (a === player) key = human.take('strong') ? 'A' : human.take('atk') ? 'D' : null;
   else { k.cpuT += dt * (4 + 2.5 * (P.cpuLevel - 1) / 8 - 0.7 * Math.max(0, 1 - (P.cpuLevel - 1) / 3)) * (0.7 + 0.6 * Math.random());   /* 新手等級按得比較慢，12 連擊不一定按得滿 */ if (k.cpuT >= 1) { k.cpuT -= 1; key = Math.random() < 0.5 ? 'A' : 'D'; } }
-  for (const n of ['jump', 'roll', 'taunt', 'lunge', 'strong', 'atk']) human.take(n);   // 其他按鍵（和被打的人的按鍵）都不算
+  for (const n of ['jump', 'roll', 'taunt', 'lunge', 'strong', 'atk', 'parry']) human.take(n);   // 其他按鍵（和被打的人的按鍵）都不算
   // 一拳「打到」的那一刻：算一下、對手被打歪、特效和停格。按下後先揮拳（起手很短），拳頭到位才觸發，停格才會停在打中的姿勢
   const dirx = dx / dist, dirz = dz / dist;
   const landPunch = () => {
@@ -2177,7 +2444,7 @@ function hitContact(a, t, contact) {
   t.flashAt = performance.now() / 1000;
   if (contact === undefined || dist < 0.05 || Math.abs(t.y - a.y) > 0.9) { a.lunge = 0; return; }
   // 拳頭和對手之間的空隙：先用「身體往前傾」補（腳留在原地，不會滑），補不滿的部分才稍微往前移一點點
-  const gap = Math.max(0, dist - contact);
+  const gap = Math.max(0, dist - (contact * sz(a) + BODY_R * (sz(t) - 1)));
   a.leanAmt = Math.min(gap, LEAN_MAX); a.lunge = Math.min(gap - a.leanAmt, SLIDE_MAX) + 1e-4; a.lungeX = dx / dist; a.lungeZ = dz / dist;
   a.lungeAt = performance.now() / 1000; a.lungeRel = 0;
 }
@@ -2188,9 +2455,13 @@ function processHits(a, t) {
   if (!d.dmg && !d.grab) return;
   if (t.dead > 0 || t.out || t.grabbedBy || isInvuln(t)) return;
   if (t.ledge && m.id === 'slam') return;   // 下墜重擊對掛邊的人只有「震落」，不造成傷害
+  // 跳 J 克制跳 L：對手正在出空中攻擊（起手或判定中）時，下墜重擊打不到他；反過來空中攻擊打下墜重擊的人，上下的範圍放寬，比較容易把他從空中打下來
+  const tm = t.move;
+  if (m.id === 'slam' && tm && tm.id === 'air' && tm.phase !== 'recovery') return;
+  const counter = m.id === 'air' && tm && tm.id === 'slam';
   const dx = t.x - a.x, dz = t.z - a.z, dist = Math.hypot(dx, dz);
-  if (dist > d.reach + BODY_R) return;
-  if (Math.abs(t.y - (a.y + (d.yOff || 0))) > d.v) return;
+  if (dist > d.reach * sz(a) + BODY_R * sz(t)) return;
+  if (Math.abs(t.y - (a.y + (d.yOff || 0) * sz(a))) > d.v * Math.max(sz(a), sz(t)) + (counter ? AIR_COUNTER_V : 0)) return;
   if (d.arc < Math.PI && dist > 0.05) {
     if ((dx * Math.sin(a.yaw) + dz * Math.cos(a.yaw)) / dist < Math.cos(d.arc)) return;
   }
@@ -2205,6 +2476,7 @@ function processHits(a, t) {
   }
   // 防禦：D 系列（light）直接打穿；其他招式被擋下 → 不會被打飛，量表只累積一半；
   //        防禦方稍微往後滑（在邊緣一直防禦還是會被慢慢推出去）；攻擊方被彈開並多 0.25 秒收招，防禦方可以反擊
+  if (t.parry && t.parry.t <= PARRY_WIN && !PARRY_SKIP.has(m.id)) { parryHit(a, t, d, m, dirx, dirz); return; }   // 彈反成功
   if (t.shielding && !d.light) {
     const dmg = (d.dmgMax ? d.dmg + (d.dmgMax - d.dmg) * m.charge : d.dmg) * P.dmgScale;
     addDamage(t, dmg * 0.5);
@@ -2218,6 +2490,26 @@ function processHits(a, t) {
     return;
   }
   applyHit(a, t, d, dirx, dirz, m.charge);
+  if (counter && !game.clash) { hitStop = Math.max(hitStop, 0.14); shake = Math.max(shake, 0.3); spark(t.x, t.y + 1.1, t.z, 12, 0xfff2c0); }   // 克制成功：停格和火花加重一點
+}
+// 彈反成功：出招的人被彈開一小段（短暫硬直）、吃到自己這一擊一半的傷害；彈的人馬上可以行動
+//   反彈的傷害不會把量表集滿一欄，所以不會觸發 12 連擊（最多停在差一點集滿）
+function parryHit(a, t, d, m, dirx, dirz) {
+  const dmg = (d.dmgMax ? d.dmg + (d.dmgMax - d.dmg) * (m.charge || 0) : d.dmg) * P.dmgScale * PARRY_DMG;
+  const before = a.pct, cap = a.locked < GAUGE_ROWS ? (a.locked + 1) * ROW_PTS - 0.5 : GAUGE_MAX;
+  addDamage(a, dmg); a.pct = Math.max(before, Math.min(a.pct, cap));
+  if (a.move && a.move.id === 'hold') releaseGrab(a);
+  a.move = null; a.roll = null; a.dodge = null; a.helpless = false; a.specUsed = false; a.launched = false;
+  a.vx = -dirx * PARRY_PUSH; a.vz = -dirz * PARRY_PUSH; a.vy = PARRY_HOP;
+  if (a.ground) { a.ground = false; a.y = 0.02; }
+  a.hitstun = PARRY_STUN;
+  a.hitX = -dirx * PARRY_PUSH; a.hitZ = -dirz * PARRY_PUSH; a.hitT = 1; a.hitSeq++; a.hitSide = 0; a.hitKind = 'heavy';
+  a.flashAt = performance.now() / 1000;
+  t.parry = null; t.parryOk = 0.4; t.lag = 0;                 // 不給無敵（無敵會讓角色閃爍，看不到彈反的姿勢）；對手被彈開後有硬直，來不及馬上再打
+  hitStop = 0.13; shake = Math.max(shake, 0.32);
+  camImpact(-dirx, -dirz, PARRY_PUSH);
+  impactFx(t.x - dirx * 0.5, t.y + 1.2, t.z - dirz * 0.5, -dirx, -dirz, 8, 0xbfe3ff);
+  spark(t.x - dirx * 0.5, t.y + 1.2, t.z - dirz * 0.5, 10, 0xbfe3ff);
 }
 function breakShield(f) {                // 破防：彈起後暈眩
   f.shielding = false; f.shieldStun = 0; f.shield = 40;
@@ -2327,13 +2619,18 @@ function saved(f) {                       // 救回來了：畫面閃白、角�
 }
 
 function ko(f) {
-  spark(f.x, Math.max(f.y, -2) + 1, f.z, 14, f.accent);
-  for (let i = 0; i < 10; i++) puff(f.x, f.y + 1, f.z, { color: f.accent, size: 0.3, life: 0.6, grow: 3, vy: 6 + Math.random() * 8, vx: (Math.random() - 0.5) * 3, vz: (Math.random() - 0.5) * 3 });
+  f.ghost = 0;
+  if (P.koFx >= 0.5) f.ghost = 1.1;
+  if (!(P.koFx >= 0.5 && koDissolve(f))) {
+    f.ghost = 0;           // 出局：身體碎成紅色點雲（關掉時用原本的火花）
+    spark(f.x, Math.max(f.y, -2) + 1, f.z, 14, f.accent);
+    for (let i = 0; i < 10; i++) puff(f.x, f.y + 1, f.z, { color: f.accent, size: 0.3, life: 0.6, grow: 3, vy: 6 + Math.random() * 8, vx: (Math.random() - 0.5) * 3, vz: (Math.random() - 0.5) * 3 });
+  }
   shake = 0.8;
   if (f.move && f.move.id === 'hold') releaseGrab(f);
   if (f.grabbedBy) { f.grabbedBy.move = null; f.grabbedBy = null; }
-  f.move = null; f.roll = null; f.dodge = null; f.ledge = null; f.hitstun = 0; f.dizzy = 0; f.shielding = false;
-  f.vx = f.vz = f.vy = 0;
+  f.move = null; f.roll = null; f.dodge = null; f.ledge = null; f.dizzy = 0; f.shielding = false; f.parry = null;
+  if (f.ghost > 0) { f.hitstun = Math.max(f.hitstun, 1); } else { f.hitstun = 0; f.vx = f.vz = f.vy = 0; }   // 點陣化中：身體照原本的動作繼續飛、繼續動
   f.dead = 999;                          // 這一局不再出現，等下一局重新站上平台
   if (game.state === 'play') {           // 先掉下去的人輸這一局
     f.opp.wins++;
@@ -2342,6 +2639,232 @@ function ko(f) {
   }
 }
 function respawn(f) {}
+
+
+// ---- 事件節奏：KO 時畫面被紅色籠罩、塌陷時光板閃冷白光、頂光往塌陷的那一角偏 ----
+const STAGE = { dark: 0, pop: 0, tint: 0, tintHold: 0, flash: 0, lean: new THREE.Vector3(), last: 0, baseCol: new THREE.Color() };
+function stepStage() {
+  const now = performance.now() / 1000, dt = Math.min(0.1, STAGE.last ? now - STAGE.last : 0); STAGE.last = now;
+  // KO 紅色：停格期間維持，之後約 0.6 秒退掉
+  if (STAGE.tintHold > 0) STAGE.tintHold -= dt; else STAGE.tint = Math.max(0, STAGE.tint - dt / 0.6);
+  // 只染遊戲畫面（介面不受影響）：鏡頭前一片乘法混合的板子，白→紅、黑還是黑
+  if (!STAGE.veil) {
+    STAGE.veil = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshBasicMaterial({ color: 0xffffff, blending: THREE.MultiplyBlending, premultipliedAlpha: true, transparent: true, depthTest: false, depthWrite: false, fog: false, toneMapped: false }));
+    STAGE.veil.position.z = -0.2; STAGE.veil.renderOrder = 999; STAGE.veil.frustumCulled = false; camera.add(STAGE.veil);
+    if (!camera.parent) scene.add(camera);
+  }
+  STAGE.veil.visible = STAGE.tint > 0.002;
+  STAGE.veil.material.color.setRGB(1, 1, 1).lerp(_stRed, STAGE.tint);
+  // 塌陷閃光：一瞬間亮起、0.35 秒退掉
+  STAGE.flash = Math.max(0, STAGE.flash - dt / 0.35);
+  // 頂光往塌陷的那一角偏
+  let tx = 0, tz = 0;
+  for (const c of corners) if (c.down > 0) { tx += c.x * 0.35 * P.colLean; tz += c.z * 0.35 * P.colLean; }
+  STAGE.lean.x += (tx - STAGE.lean.x) * (1 - Math.exp(-dt * 3)); STAGE.lean.z += (tz - STAGE.lean.z) * (1 - Math.exp(-dt * 3));
+  spot.target.position.set(STAGE.lean.x, 0, STAGE.lean.z); spot.target.updateMatrixWorld();
+  spot.position.x = STAGE.lean.x * 0.4; spot.position.z = STAGE.lean.z * 0.4;
+  // 回合開始：全黑 → 燈一下子亮起（先過亮一點再回到正常）
+  let on = 1;
+  if (STAGE.dark > 0) { STAGE.dark -= dt; on = 0; if (STAGE.dark <= 0) STAGE.pop = 1; }
+  STAGE.pop = Math.max(0, (STAGE.pop || 0) - dt / 0.3);
+  const pop = 1 + P.openPop * STAGE.pop * STAGE.pop;
+  const b = P.brightness, fl = STAGE.flash * STAGE.flash;
+  hemi.intensity = 0.25 * b * P.boxAmbient * on; fill.intensity = 0.2 * b * P.boxAmbient * on;
+  if (!STAGE.env && scene.environment) STAGE.env = scene.environment;
+  scene.environment = on ? STAGE.env : null;                   // 全黑時連環境反光也關掉
+  spot.intensity = 4.6 * b * P.boxLight * (1 + 1.6 * fl) * on * pop;
+  if (BOX && BOX.panelMat) BOX.panel.visible = on > 0;
+  spot.color.copy(boxCol).lerp(_stCold, Math.min(1, fl));
+  if (BOX && BOX.panelMat) BOX.panelMat.color.copy(spot.color).multiplyScalar(2.2 * P.boxLight * (1 + 1.6 * fl));
+}
+const _stCold = new THREE.Color(0.86, 0.93, 1.0), _stRed = new THREE.Color(1.0, 0.1, 0.06);
+// =====================================================================
+// 出局點陣化：角色一碰到地板（或飛出界），當下的姿勢變成上萬個紅色的點——先維持人形一瞬間，
+// 接著從腳底開始一層層往上散開、往外飄，碰到鏡面地板的點會沿著地面濺開；點會閃爍、越飄越慢、慢慢熄滅。
+// 點取自角色模型表面（含骨架變形後的位置），所以散開前的人形和最後一刻的動作一模一樣
+// =====================================================================
+const KOFX = [];
+const _kv = new THREE.Vector3(), _km = new THREE.Matrix4(), _kw = new THREE.Vector3();
+// 出局後身體繼續照物理飛、落地（看不到，由光點代替），讓還沒散開的光點跟著動作走
+function ghostStep(f, dt) {
+  f.ghost -= dt;
+  f.vy -= P.airG * dt;
+  f.x += f.vx * dt; f.y += f.vy * dt; f.z += f.vz * dt;
+  const FL = window.__FLOOR, fy = FL && FL.fit && FL.group.visible ? FL.y - platform.position.y : -1e4;
+  if (f.y < fy) { f.y = fy; f.vy = Math.abs(f.vy) * 0.2; f.vx *= 0.75; f.vz *= 0.75; }   // 落在鏡面上：彈一下、滑一段
+}
+
+// 實體溶解：角色的材質換成會從腳往上消失的版本，消失的邊緣是一條發亮的紅線，和光點脫離身體的時間同步
+function dissolveStart(f, meshes, rMin, rH, T) {
+  const u = { uCut: { value: -0.1 }, uMin: { value: rMin }, uH: { value: rH } };
+  f.dis = { u, T, t0: performance.now() / 1000 + Math.max(0, hitStop), saved: [] };   // 停格結束後才開始溶解
+  for (const m of meshes) {
+    const orig = m.material, list = Array.isArray(orig) ? orig : [orig];
+    const repl = list.map(mt => {
+      const c = mt.clone();
+      c.onBeforeCompile = sh => {
+        if (mt.onBeforeCompile && mt.onBeforeCompile !== c.onBeforeCompile) try { mt.onBeforeCompile(sh); } catch (e) {}
+        sh.uniforms.uCut = u.uCut; sh.uniforms.uMin = u.uMin; sh.uniforms.uH = u.uH;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vDisH; varying vec3 vDisP;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDisH = position.y; vDisP = position;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          varying float vDisH; varying vec3 vDisP; uniform float uCut, uMin, uH;
+          float dh(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+          float dn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(mix(dh(i), dh(i + vec3(1,0,0)), f.x), mix(dh(i + vec3(0,1,0)), dh(i + vec3(1,1,0)), f.x), f.y),
+                       mix(mix(dh(i + vec3(0,0,1)), dh(i + vec3(1,0,1)), f.x), mix(dh(i + vec3(0,1,1)), dh(i + vec3(1,1,1)), f.x), f.y), f.z); }`)
+          .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          float hN = (vDisH - uMin) / uH + (dn(vDisP / uH * 14.0) - 0.5) * 0.12;   // 邊緣不規則
+          if (hN < uCut) discard;`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          totalEmissiveRadiance += vec3(1.0, 0.12, 0.05) * smoothstep(0.06, 0.0, hN - uCut) * 3.0;`);   // 溶解邊緣發紅光
+      };
+      c.customProgramCacheKey = () => 'dissolve' + mt.uuid;
+      return c;
+    });
+    f.dis.saved.push([m, orig]);
+    m.material = Array.isArray(orig) ? repl : repl[0];
+  }
+}
+function dissolveStep(f) {
+  const d = f.dis; if (!d) return;
+  const t = performance.now() / 1000 - d.t0;
+  d.u.uCut.value = -0.1 + 1.25 * Math.min(1, t / d.T);
+  if (t > d.T + 0.15) dissolveEnd(f);
+}
+function dissolveEnd(f) {
+  const d = f.dis; if (!d) return;
+  for (const [m, orig] of d.saved) { const r = m.material; (Array.isArray(r) ? r : [r]).forEach(x => x.dispose()); m.material = orig; }
+  f.dis = null; f.ghost = 0; f.mesh.visible = false;
+}
+function koDissolve(f) {
+  const meshes = [];
+  f.mesh.updateMatrixWorld(true);
+  f.mesh.traverse(o => { if (o.isSkinnedMesh && o.visible !== false) meshes.push(o); });
+  const skinned = meshes.length > 0;
+  if (!skinned) f.mesh.traverse(o => { if (o.isMesh && o.visible !== false && o.geometry && o.geometry.attributes.position) meshes.push(o); });
+  if (!meshes.length) return false;
+  let total = 0; for (const m of meshes) total += m.geometry.attributes.position.count;
+  const N = Math.round(P.koFxN), start = new Float32Array(N * 3), vel = new Float32Array(N * 3), seed = new Float32Array(N * 3);
+  const bone = new Int32Array(N), boneOf = [], off = new Float32Array(N * 3), restH = new Float32Array(N);
+  let minY = 1e9, maxY = -1e9; const cx = new THREE.Vector3();
+  for (let i = 0; i < N; i++) {
+    let r = Math.floor(Math.random() * total), m = meshes[0];
+    for (const mm of meshes) { const c = mm.geometry.attributes.position.count; if (r < c) { m = mm; break; } r -= c; }
+    restH[i] = m.geometry.attributes.position.getY(r);
+    if (m.isSkinnedMesh) m.getVertexPosition(r, _kv); else _kv.fromBufferAttribute(m.geometry.attributes.position, r);
+    _kv.applyMatrix4(m.matrixWorld);
+    _kv.x += (Math.random() - 0.5) * 0.03; _kv.y += (Math.random() - 0.5) * 0.03; _kv.z += (Math.random() - 0.5) * 0.03;
+    start[i * 3] = _kv.x; start[i * 3 + 1] = _kv.y; start[i * 3 + 2] = _kv.z;
+    cx.add(_kv); minY = Math.min(minY, _kv.y); maxY = Math.max(maxY, _kv.y);
+    // 這個點跟著哪根骨頭動：影響最大的那根；記下它在骨頭座標裡的位置
+    bone[i] = -1;
+    if (m.isSkinnedMesh && m.geometry.attributes.skinIndex) {
+      const si = m.geometry.attributes.skinIndex, sw = m.geometry.attributes.skinWeight;
+      let best = 0, bw = -1; for (let k = 0; k < 4; k++) { const w = sw.getComponent(r, k); if (w > bw) { bw = w; best = si.getComponent(r, k); } }
+      const bn = m.skeleton.bones[best];
+      if (bn) {
+        let id = boneOf.indexOf(bn); if (id < 0) { boneOf.push(bn); id = boneOf.length - 1; }
+        bone[i] = id;
+        _km.copy(bn.matrixWorld).invert(); _kw.copy(_kv).applyMatrix4(_km);
+        off[i * 3] = _kw.x; off[i * 3 + 1] = _kw.y; off[i * 3 + 2] = _kw.z;
+      }
+    }
+  }
+  cx.multiplyScalar(1 / N);
+  const sp = P.koFxSpread, H = Math.max(0.5, maxY - minY);
+  let rMin = 1e9, rMax = -1e9; for (let i = 0; i < N; i++) { rMin = Math.min(rMin, restH[i]); rMax = Math.max(rMax, restH[i]); }
+  const rH = Math.max(1e-4, rMax - rMin), DIS_T = f.ghost * 0.85;
+  dissolveStart(f, meshes, rMin, rH, DIS_T);
+  for (let i = 0; i < N; i++) {
+    const dx = start[i * 3] - cx.x, dz = start[i * 3 + 2] - cx.z, dl = Math.hypot(dx, dz) || 1;
+    const a = Math.random() * Math.PI * 2, out = (2.5 + Math.random() * Math.random() * 11) * sp;   // 散得誇張：少數點飛很遠
+    vel[i * 3] = (dx / dl * 0.6 + Math.cos(a) * 0.7) * out;
+    vel[i * 3 + 1] = (Math.random() * 4.5 - 0.4) * sp;
+    vel[i * 3 + 2] = (dz / dl * 0.6 + Math.sin(a) * 0.7) * out;
+    seed[i * 3] = Math.random();
+    seed[i * 3 + 1] = Math.min(1, Math.max(0, (restH[i] - rMin) / rH));          // 在身體上的高度（站姿時：0 = 腳底、1 = 頭頂）
+    seed[i * 3 + 2] = Math.max(0, seed[i * 3 + 1] + (seed[i * 3] - 0.5) * 0.08) * DIS_T;   // 何時離開身體：和實體溶解的那條線同步   // 何時離開身體：腳先、頭最後（身體還在動的那段時間內陸續散開）
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(start, 3));
+  g.setAttribute('aVel', new THREE.BufferAttribute(vel, 3));
+  g.setAttribute('aSeed', new THREE.BufferAttribute(seed, 3));
+  const floorY = window.__FLOOR && window.__FLOOR.fit && window.__FLOOR.group.visible ? window.__FLOOR.y : -1e4;
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 }, uDur: { value: P.koFxTime }, uFloor: { value: floorY + 0.03 }, uPx: { value: renderer.getPixelRatio() } },
+    vertexShader: `
+      attribute vec3 aVel; attribute vec3 aSeed;
+      uniform float uT, uDur, uFloor, uPx;
+      varying float vA; varying vec3 vC;
+      void main() {
+        float s = aSeed.x, d = aSeed.z;
+        float t = max(0.0, uT - d);                         // 離開身體之前：跟著身體的動作走（位置每格由 CPU 更新）
+        float k = t * t / (t + 0.55);                       // 滑順地起步，之後持續往外飄
+        vec3 p = position + aVel * k * 0.55;
+        p.y += t * t * 0.22;
+        p += vec3(sin(uT * 2.1 + s * 40.0), sin(uT * 1.7 + s * 23.0), cos(uT * 1.9 + s * 31.0)) * 0.08 * k;
+        if (p.y < uFloor) { p.y = uFloor; }
+        float life = clamp(uT / uDur, 0.0, 1.0);
+        float twinkle = 0.55 + 0.45 * sin(uT * (9.0 + s * 18.0) + s * 60.0);
+        vA = (1.0 - smoothstep(0.5, 1.0, life)) * mix(1.0, twinkle, smoothstep(0.0, 0.6, t));
+        vec3 deep = vec3(0.55, 0.02, 0.02), hot = vec3(1.0, 0.16, 0.08), white = vec3(1.0, 0.75, 0.68);
+        vC = mix(deep, hot, s * s) * (1.05 - 0.45 * life);
+        if (s > 0.985) vC = white * 1.6 * (1.0 - life);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        float sz = (0.02 + 0.035 * fract(s * 7.13)) * (1.0 - 0.4 * life);
+        gl_PointSize = clamp(sz * uPx * 900.0 / -mv.z, 1.0, 7.0);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying float vA; varying vec3 vC;
+      void main() {
+        vec2 c = gl_PointCoord - 0.5; float r = length(c);
+        float a = smoothstep(0.5, 0.0, r); a *= a;
+        if (a * vA < 0.003) discard;
+        gl_FragColor = vec4(vC * a * vA, 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, toneMapped: false,
+  });
+  const pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = 6;
+  scene.add(pts);
+  KOFX.push({ pts, t0: performance.now() / 1000 + Math.max(0, hitStop), f, bone, boneOf, off, rel: seed.slice(), N, lastV: new THREE.Vector3() });
+  glowFx++;
+  return true;
+}
+function stepKoFx() {
+  for (const f of fighters) if (f.dis) dissolveStep(f);
+  if (!KOFX.length) return;
+  const now = performance.now() / 1000;
+  for (let i = KOFX.length - 1; i >= 0; i--) {
+    const e = KOFX[i], t = now - e.t0, u = e.pts.material.uniforms;
+    u.uT.value = t;
+    if (e.boneOf.length && t < 2) {                 // 還沒離開身體的點：跟著骨頭（身體的動作）移動；離開的那一刻帶著身體的速度
+      for (const bn of e.boneOf) bn.updateMatrixWorld(true);
+      const pos = e.pts.geometry.attributes.position, vel = e.pts.geometry.attributes.aVel, P3 = pos.array, V3 = vel.array;
+      platform.localToWorld(_kw.set(e.f.vx, e.f.vy, e.f.vz)).sub(platform.localToWorld(_kv.set(0, 0, 0)));
+      let any = false;
+      for (let j = 0; j < e.N; j++) {
+        const id = e.bone[j]; if (id < 0) continue;
+        const d = e.rel[j * 3 + 2];
+        if (d < 0) continue;                         // 已經放開
+        _kv.set(e.off[j * 3], e.off[j * 3 + 1], e.off[j * 3 + 2]).applyMatrix4(e.boneOf[id].matrixWorld);
+        P3[j * 3] = _kv.x; P3[j * 3 + 1] = _kv.y; P3[j * 3 + 2] = _kv.z;
+        if (t >= d) {                                // 這一格放開：加上身體當下的速度（一部分），之後由著色器飄散
+          V3[j * 3] += _kw.x * 0.5; V3[j * 3 + 1] += _kw.y * 0.3; V3[j * 3 + 2] += _kw.z * 0.5;
+          e.rel[j * 3 + 2] = -1;
+          any = true;
+        }
+      }
+      // 著色器用 aSeed.z 當離開時間：已放開的點要保留原本的時間 → 另存
+      pos.needsUpdate = true; if (any) vel.needsUpdate = true;
+    }
+    if (t > u.uDur.value + 0.1) {
+      scene.remove(e.pts); e.pts.geometry.dispose(); e.pts.material.dispose(); KOFX.splice(i, 1);
+      glowFx = Math.max(0, glowFx - 1);
+    }
+  }
+}
 
 function turnTo(f, target, rate, dt) {
   let dy = target - f.yaw;
@@ -2353,7 +2876,7 @@ function stepFighter(f, c, dt, active) {
   const o = f.opp;
   for (const k of ['invuln', 'lag', 'shieldStun', 'ledgeCd']) f[k] = Math.max(0, f[k] - dt);
   if (f.out) return;
-  if (f.dead > 0) { f.dead -= dt; if (f.dead <= 0) respawn(f); return; }
+  if (f.dead > 0) { if (f.ghost > 0) ghostStep(f, dt); f.dead -= dt; if (f.dead <= 0) respawn(f); return; }
   if (active) {                          // 量表恢復：一段時間沒被打中 → 慢慢減少，但集滿的欄不會減少
     f.calm += dt;
     if (f.calm > GAUGE_REST) {
@@ -2433,8 +2956,17 @@ function stepFighter(f, c, dt, active) {
     }
   } else if (wasShield && !f.roll && !f.move && f.ground) f.lag = Math.max(f.lag, 0.1);
 
+  // ---- 彈反 ----
+  f.parryOk = Math.max(0, f.parryOk - dt);
+  if (stunned) c.take('parry');            // 被打中的硬直中按了不算（也不會留到硬直結束才生效）
+  if (f.parry) { f.parry.t += dt; if (f.parry.t >= PARRY_WIN + PARRY_MISS) f.parry = null; }
+  else if (active && !stunned && !f.move && !f.roll && !f.dodge && f.lag <= 0 && !f.shielding && c.take('parry')) {
+    f.parry = { t: 0, uid: ++moveSeq }; f.parryUid = f.parry.uid;
+    puff(f.x, f.y + 1.15, f.z, { color: 0xbfe3ff, size: 0.5, life: 0.2, grow: 2.2 });   // 按下的瞬間：身前一圈淡藍色的光，讓人看得出「現在在彈」
+  }
+
   // ---- 可自由行動時：移動與出招 ----
-  const free = active && !stunned && !f.move && !f.roll && !f.dodge && f.lag <= 0 && !f.shielding;
+  const free = active && !stunned && !f.move && !f.roll && !f.dodge && f.lag <= 0 && !f.shielding && !f.parry;
   if (free) {
     ix = c.mx; iz = c.mz;
     if (f.ground) {
@@ -2550,9 +3082,10 @@ function pushApart(a, b) {               // 身體互相擠開（不交換速度
   if (Math.abs(a.y - b.y) > 1.2) return;
   let dx = b.x - a.x, dz = b.z - a.z;
   const dist = Math.hypot(dx, dz);
-  if (dist >= 2 * BODY_R || dist < 1e-4) return;
+  const R2 = BODY_R * (sz(a) + sz(b));
+  if (dist >= R2 || dist < 1e-4) return;
   dx /= dist; dz /= dist;
-  const o = (2 * BODY_R - dist) / 2;
+  const o = (R2 - dist) / 2;
   a.x -= dx * o; a.z -= dz * o; b.x += dx * o; b.z += dz * o;
 }
 
@@ -2564,10 +3097,12 @@ function showMsg(t) { msgEl.textContent = t; msgEl.style.opacity = t ? 1 : 0; }
 const game = { state: 'count', t: 0, round: 0, winner: null, roundWinner: null, clash: null };
 
 function resetFighter(f, side) {
+  if (f.dis) dissolveEnd(f);
+  f.ghost = 0;
   Object.assign(f, {
     vx: 0, vz: 0, vy: 0, y: 0, ground: true, pct: 0, calm: 0, locked: 0, out: false, dead: 0,
     airJumps: 1, specUsed: false, dodgeUsed: false, helpless: false, move: null, hitstun: 0, dizzy: 0, lag: 0, invuln: 0,
-    shield: 100, shielding: false, shieldStun: 0, roll: null, dodge: null, ledge: null, ledgeCd: 0, grabbedBy: null,
+    shield: 100, shielding: false, shieldStun: 0, parry: null, parryOk: 0, roll: null, dodge: null, ledge: null, ledgeCd: 0, grabbedBy: null,
     spin: 0, hitT: 0, landT: 0, edgeHold: 0, ledgeCount: 0, closeCall: false, launched: false,
   });
   [f.x, f.z] = fromUV(side * 3, 0);       // 每局開始：左右分開站
@@ -2584,8 +3119,9 @@ function startRound() {
   game.state = 'intro'; game.t = 0; game.roundWinner = null;
   for (const f of fighters) {                // 從高處落下
     f.y = INTRO.height; f.vy = 0; f.ground = false; f.introT = 0;
-    f.introDelay = f === cpu ? INTRO.cpuDelay : 0;
+    f.introDelay = (f === cpu ? INTRO.cpuDelay : 0) + (P.openDark > 0.01 && !VIEW_Q ? P.openDark + 0.15 : 0);   // 燈亮之後才落下
   }
+  if (P.openDark > 0.01 && !VIEW_Q) { STAGE.dark = P.openDark; STAGE.pop = 0; }   // 回合開始：全黑，燈「啪」一聲亮起
   slowT = 0; hitStop = 0;
 }
 function startMatch() {
@@ -2603,7 +3139,7 @@ function updateGame(dt) {
     game.t += dt; showMsg('');
     const pullLen = rigAssets.clips.pull ? rigAssets.clips.pull.duration / INTRO.pullSpeed : 0.6;
     const done = fighters.every(f => f.ground && f.introT >= INTRO.smash + pullLen + INTRO.after);
-    if (done || game.t > INTRO.maxTime) { game.state = 'play'; game.goT = 0.5; }
+    if (done || game.t > INTRO.maxTime + P.openDark) { game.state = 'play'; game.goT = 0.5; }
   } else if (game.state === 'play' && game.goT > 0) {
     game.goT -= dt; showMsg(game.goT > 0 ? 'GO' : '');
   } else if (game.state === 'count') {
@@ -2614,7 +3150,7 @@ function updateGame(dt) {
     game.t += dt;
     const w = game.roundWinner;
     showMsg(tr('roundWin')(w === player ? 'you' : 'cpu'));
-    if (game.t > 2.2) {
+    if (game.t > 2.2 + (P.koFx >= 0.5 && P.cineOn >= 0.5 ? P.koFocus : 0)) {   // 有點陣化：多留時間看完溶解再看贏家
       if (w.wins >= P.roundsToWin) endMatch(w);
       else startRound();
     }
@@ -2631,8 +3167,8 @@ function updateGame(dt) {
 const clampA = (v, a) => Math.max(-a, Math.min(a, v));
 function animateFighter(f, dt) {
   const rig = f.rig, t = performance.now() / 1000;
-  if (f.dead > 0 || f.out) { f.mesh.visible = false; return; }
-  f.mesh.visible = !(f.invuln > 0 && Math.floor(t * 16) % 2 === 0);   // 無敵時閃爍
+  if ((f.dead > 0 && !(f.ghost > 0)) || f.out) { f.mesh.visible = false; return; }
+  f.mesh.visible = !(f.invuln > 0 && Math.floor(t * 16) % 2 === 0);   // 無敵時閃爍（點陣化中身體照樣顯示，由溶解材質從腳往上消失）
   f.mesh.position.set(f.x, f.y, f.z);
   f.mesh.rotation.y = f.yaw;
   f.mesh.rotation.order = 'YXZ'; f.mesh.rotation.x = 0;
@@ -2747,7 +3283,7 @@ function animateFighter(f, dt) {
     } else if (m.id === 'throwRec') {
       both({ x: -1.7, z: 0.2, el: -0.1 }); spineX = 0.55; swing[0] = -0.7; swing[1] = 0.5;
     }
-  } else if (f.shielding) {                          // 防禦：蹲低、雙臂交叉
+  } else if (f.shielding || f.parry) {               // 防禦／彈反：蹲低、雙臂交叉
     both({ x: -1.2, z: -0.4, el: -1.6 }); crouch = 0.55; spread = 0.26; spineX = 0.25; neckX = 0.15; speed = 24;
   } else if (!f.ground) {
     if (f.helpless) { both({ x: -0.3, z: 0.6, el: -0.4 }); swing[0] = -0.2; swing[1] = 0.2; knee[0] = knee[1] = 0.5; spineX = -0.1; }
@@ -2817,6 +3353,9 @@ function animateFighter(f, dt) {
   if (f.shielding) rig.bubble.material.opacity = f.shieldStun > 0 ? 0.35 : 0.16;
   if (f.shielding) rig.bubble.scale.setScalar(0.6 + 0.5 * Math.max(0, f.shield) / 100);
   if (f.model) updateModel(f, dt, spinX, spinY);
+  if (f.bib) stepBib(f, hitStop > 0 ? dt * 0.05 : dt);
+  if (f.skirt) stepSkirt(f, hitStop > 0 ? dt * 0.05 : dt);
+  if (f.f1sh) syncF1(f);   // 圍兜下襬晃動（停格時一起停）
   if (f.opacity !== opacity) {           // 空中閃避時半透明
     f.opacity = opacity;
     rig.body.traverse(o => { if (o.isMesh) { o.material.transparent = opacity < 1; o.material.opacity = opacity; } });
@@ -2831,6 +3370,13 @@ function animateFighter(f, dt) {
 // 網址加 ?char=xbot：改用早期版本的 Mixamo 預設人偶（X Bot）；?char=box：最早期的方塊人。拍迭代對比用
 const CHAR_MODE = new URLSearchParams(location.search).get('char');
 const CHAR_FILES = CHAR_MODE === 'xbot' ? ['character'] : ['gi', 'character'];   // 角色模型檔（ 裡），依序嘗試
+// ?char=fighter1：玩家用第一個鬥士（牛角飛行帽＋圍兜），對手照舊用道服角色。鬥士的體型放大 F1_SIZE 倍（只是外觀，碰撞範圍不變）
+// 選角：?char= 是玩家的角色、?foe= 是對手的角色（沒寫 = 道服角色）。fighter1：第一個鬥士（第二版身體），fighter1old：舊版
+const CHAR_SPEC = { fighter1: { file: 'fighter1v2', size: 1.25 }, fighter1old: { file: 'fighter1', size: 1.25 },
+  fighter2: { file: 'fighter2', size: 1.1 },      // 第二個鬥士：頭頂的髮髻和馬尾佔了一截高度，放大一點讓身體跟其他角色差不多大
+  fighter3: { file: 'fighter3', size: 1.2 } };    // 第三個鬥士：褲子拉長、頭頂有髮髻，整體偏高
+const FOE_MODE = new URLSearchParams(location.search).get('foe');
+const P_SPEC = CHAR_SPEC[CHAR_MODE] || null, C_SPEC = new URLSearchParams(location.search).get('view') === 'character' ? null : CHAR_SPEC[FOE_MODE] || null;   // 角色預覽沒有對手，不用讀
 const rigAssets = { ready: false, base: null, clips: {}, impact: {}, scale: 1, missing: [] };
 // 動作檔對照表。lockY：連上下位移也鎖住（跳躍、下墜、爬上來的高度由遊戲物理控制）
 const RIG_CLIPS = {
@@ -2857,6 +3403,8 @@ const RIG_CLIPS = {
   pull:   { file: 'pull' },
   taunt:  { file: 'taunt' },                     // Silly Dancing：空白鍵嘲諷                      // Sumo High Pull：開場落地後蹲低站穩
   climb:  { file: 'climb', keepRoot: true },     // Freehang Climb：保留身體往上、往前的位移
+  parry:  { file: 'parry' },                     // Inward Block：彈反時手臂往內撥開
+  block:  { file: 'character' },                 // Body Block（附在 X Bot 的檔案裡）：彈反時雙臂擋在身前
 };
 // 左右鏡射一個動作（Mixamo 骨架左右對稱）：左右骨頭互換，旋轉和位移對 X 軸鏡射
 function mirrorClip(clip, name) {
@@ -3029,15 +3577,485 @@ function retargetCC(srcObj, srcClip, name, skipFrames = 2) {
   return new THREE.AnimationClip(name, -1, tracks);
 }
 
+// ---- 圍兜下襬晃動 ----
+//   胸口骨頭往下一段距離的點當作「下襬該在的位置」，用一個彈簧去追它；彈簧落後的距離 = 下襬甩出去的量。
+//   在著色器裡把這個位移加到圍兜的頂點上：領口（上方）不動，越往下襬動得越多。被打、被撞飛、停格都會自然反應
+function setupBib(f, mesh, mat) {
+  const g = mesh.geometry, pos = g.attributes.position, idx = g.index;
+  const gr = g.groups.find(q => mesh.material[q.materialIndex] === mat);
+  if (!gr) return;
+  // 模型檔裡的頂點座標不一定是 Y 朝上（FBX 會把軸向轉換放在物件的旋轉裡）：先算出「往上」在模型座標裡是哪個方向
+  mesh.updateWorldMatrix(true, false);
+  const up = new THREE.Vector3(0, 1, 0).applyMatrix3(new THREE.Matrix3().setFromMatrix4(mesh.matrixWorld).invert()).normalize();
+  let y0 = Infinity, y1 = -Infinity;                       // 圍兜在綁定姿勢裡的上下範圍
+  const pv = new THREE.Vector3();
+  for (let i = gr.start; i < gr.start + gr.count; i++) { const y = pv.fromBufferAttribute(pos, idx ? idx.getX(i) : i).dot(up); if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const u = { uBibOff: { value: new THREE.Vector3() }, uBibUp: { value: up }, uBibY: { value: new THREE.Vector2(y1 - (y1 - y0) * 0.3, y0) } };
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    prev.call(mat, sh, r);
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'uniform vec3 uBibOff; uniform vec3 uBibUp; uniform vec2 uBibY;\n' + sh.vertexShader.replace('#include <skinning_vertex>',
+      '#include <skinning_vertex>\n  { float bw = smoothstep(uBibY.x, uBibY.y, dot(position, uBibUp)); transformed += uBibOff * bw * bw; }');
+  };
+  mat.customProgramCacheKey = () => 'f1bib';
+  let bone = null; mesh.skeleton.bones.forEach(b => { if (/Spine2$/.test(b.name)) bone = b; });
+  if (!bone) return;
+  f.bib = { mesh, u, bone, x: new THREE.Vector3(), v: new THREE.Vector3(), init: false };
+}
+const _bt = new THREE.Vector3(), _bo = new THREE.Vector3(), _bf = new THREE.Vector3(), _bm = new THREE.Matrix3(), _bs = new THREE.Vector3();
+function stepBib(f, dt) {
+  const B = f.bib, P_ = P;
+  B.bone.updateWorldMatrix(true, false);
+  const s = B.bone.getWorldScale(_bs).y || 1;
+  B.bone.localToWorld(_bt.set(0, -0.45 / s, 0));          // 胸口往下約 45 公分：下襬中段該在的位置
+  if (!B.init || B.x.distanceTo(_bt) > 2) { B.x.copy(_bt); B.v.set(0, 0, 0); B.init = true; }   // 第一次、或瞬間移動（重新開局）：直接放到位
+  const w = 2 * Math.PI * P_.bibFreq, K = w * w, C = 2 * P_.bibDamp * w, n = 4, h = Math.min(dt, 0.05) / n;
+  for (let i = 0; i < n; i++) {
+    _bo.subVectors(_bt, B.x).multiplyScalar(K).addScaledVector(B.v, -C);
+    B.v.addScaledVector(_bo, h); B.x.addScaledVector(B.v, h);
+  }
+  _bo.subVectors(B.x, _bt).multiplyScalar(P_.bibSway);
+  _bf.set(0, 0, 1).transformDirection(B.bone.matrixWorld);                 // 身體正前方：往身體裡面擺的量大幅減少（不會穿進肚子）
+  const back = _bo.dot(_bf); if (back < 0) _bo.addScaledVector(_bf, -back * 0.85);
+  if (_bo.length() > 0.35) _bo.setLength(0.35);
+  B.mesh.updateWorldMatrix(true, false);
+  _bm.setFromMatrix4(B.mesh.matrixWorld).invert();                         // 世界座標的位移 → 模型自己的座標（含縮放）
+  B.u.uBibOff.value.copy(_bo).applyMatrix3(_bm);
+}
+// ---- 第一個鬥士的材質與光 ----
+//   每個零件只有一張顏色貼圖，皮膚、皮革、毛、帆布混在同一張裡 → 在著色器裡依顏色分辨（皮革：深酒紅；皮膚：橘粉；毛／帆布／牛角：低彩度亮色；皮帶：近黑）
+//   皮膚：薄油光（亮光漆）＋紅潤的透光感；皮革：拋光亮光漆；毛和帆布：絨面光澤。
+//   另外只打在鬥士身上的兩道光（在著色器裡算，不照到平台）：輪廓光（從後上方勾出身體邊緣）和補光（從鏡頭這一側淡淡打亮暗面）
+const F1U = { uHatRed: { value: 1 }, uVein: { value: 1 }, uPore: { value: 0.6 }, uCav: { value: 0.7 }, uOil: { value: 0.6 }, uSss: { value: 0.6 }, uSheen: { value: 0.6 }, uLeather: { value: 0.7 }, uRim: { value: 0.8 }, uFill: { value: 0.25 },
+  uRimDir: { value: new THREE.Vector3(0.55, 0.75, -0.35).normalize() }, uFillDir: { value: new THREE.Vector3(-0.5, 0.25, 0.83).normalize() },
+  uRimCol: { value: new THREE.Color(1.0, 0.92, 0.84) }, uFillCol: { value: new THREE.Color(0.85, 0.9, 1.0) } };
+function syncF1(f) {
+  for (const m of f.mats) if (m.userData.f1Kind !== undefined) m.envMapIntensity = P.f1Env;
+  for (const m of f.mats) if (m.normalMap && m.userData.f1Kind !== undefined) { const k = m.userData.f1Kind <= 1 ? P.f1Muscle : 1; if (m.normalScale.x !== k) m.normalScale.set(k, k); }   // 肌肉紋理深淺：只調身體和臉（皮革、帽子、圍兜照舊）
+  F1U.uHatRed.value = P.f1HatRed; F1U.uVein.value = P.f1Vein; F1U.uPore.value = P.f1Pore; F1U.uCav.value = P.f1Cav; F1U.uOil.value = P.f1Oil; F1U.uSss.value = P.f1Sss; F1U.uSheen.value = P.f1Sheen; F1U.uLeather.value = P.f1Leather;
+  F1U.uRim.value = P.f1Rim; F1U.uFill.value = P.f1Fill;
+}
+// 鬥士專用的反射環境：和場景的一樣（黑色空間＋頭頂一片暖白光板），再加上腳下一片被照亮的紅色擂台 → 皮革、腿的下半部會帶到一點擂台的紅
+let _f1Env = null;
+function f1Env() {
+  if (_f1Env) return _f1Env;
+  const env = new THREE.Scene();
+  const room = new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshBasicMaterial({ color: 0x050505, side: THREE.BackSide }));
+  room.position.y = 12; env.add(room);
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.4, 3.15, 2.85), side: THREE.DoubleSide }));
+  sky.rotation.x = Math.PI / 2; sky.position.y = 26; env.add(sky);
+  const ring = new THREE.Mesh(new THREE.PlaneGeometry(26, 26), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 0.07, 0.06), side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = -1.2; env.add(ring);
+  const pm = new THREE.PMREMGenerator(renderer);
+  _f1Env = pm.fromScene(env, 0.04).texture; pm.dispose();
+  return _f1Env;
+}
+// 鬥士專用的高解析陰影：每個鬥士一張只涵蓋自己身體周圍（約 3 公尺見方）的陰影圖，從頂光的方向拍。
+//   只用來讓鬥士身上的影子（帽簷、圍兜、手臂落在身上的影子）清楚；平台上的影子照舊由頂光負責
+const F1SH_N = 1024, F1SH_R = 1.5;
+let _f1DepthMat = null;
+function f1ShadowSetup(f) {
+  const dt = new THREE.DepthTexture(F1SH_N, F1SH_N); dt.type = THREE.UnsignedIntType;
+  const rt = new THREE.WebGLRenderTarget(F1SH_N, F1SH_N, { depthTexture: dt, depthBuffer: true });
+  const cam = new THREE.OrthographicCamera(-F1SH_R, F1SH_R, F1SH_R, -F1SH_R, 1, 20);
+  f.f1sh = { rt, cam, uShMap: { value: dt }, uShMat: { value: new THREE.Matrix4() }, uShK: { value: 0.85 } };
+}
+const _f1c = new THREE.Vector3(), _f1d = new THREE.Vector3();
+function renderF1Shadows() {
+  if (!_f1DepthMat) _f1DepthMat = new THREE.MeshDepthMaterial({ colorWrite: false });
+  for (const f of fighters) {
+    const S = f.f1sh; if (!S || !f.model) continue;
+    S.uShK.value = P.f1Shadow;
+    if (!(P.f1Shadow > 0) || !f.mesh.visible) continue;
+    f.model.pivot.getWorldPosition(_f1c);
+    _f1d.copy(spot.position).sub(_f1c).normalize();
+    S.cam.position.copy(_f1c).addScaledVector(_f1d, 10); S.cam.lookAt(_f1c); S.cam.updateMatrixWorld();
+    S.uShMat.value.multiplyMatrices(S.cam.projectionMatrix, S.cam.matrixWorldInverse);
+    const M = f.model.model, keep = [];
+    M.traverse(o => { if (o.isMesh) { keep.push([o, o.material]); o.material = _f1DepthMat; } });
+    const prevT = renderer.getRenderTarget();
+    renderer.setRenderTarget(S.rt); renderer.clear(); renderer.render(M, S.cam); renderer.setRenderTarget(prevT);
+    for (const [o, m] of keep) o.material = m;
+  }
+}
+// 肉縫陰影：不靠烘焙貼圖（Meshy 的貼圖切得太碎，烘焙會出錯），直接用模型本身的形狀算 ——
+//   把表面「抹平」幾次，原本比抹平後的表面低的地方就是凹處（肌肉之間的溝、腹肌之間、斜方肌和脖子交界）。
+//   每個頂點記一個 0～1 的凹陷程度，著色器裡讓這些地方吃到比較少的光
+function f1Cavity(geo) {
+  if (geo.attributes.aCav) return;
+  const pos = geo.attributes.position, nor = geo.attributes.normal, N = pos.count, idx = geo.index;
+  const ids = new Int32Array(N), map = new Map(); let U = 0;
+  for (let i = 0; i < N; i++) {           // 貼圖接縫會把同一個點拆成好幾個頂點：位置一樣的當成同一個點
+    const k = Math.round(pos.getX(i) * 2e4) + ',' + Math.round(pos.getY(i) * 2e4) + ',' + Math.round(pos.getZ(i) * 2e4);
+    let u = map.get(k); if (u === undefined) { u = U++; map.set(k, u); } ids[i] = u;
+  }
+  const P0 = new Float32Array(U * 3), Nn = new Float32Array(U * 3);
+  for (let i = 0; i < N; i++) { const u = ids[i] * 3; P0[u] = pos.getX(i); P0[u + 1] = pos.getY(i); P0[u + 2] = pos.getZ(i); if (nor) { Nn[u] += nor.getX(i); Nn[u + 1] += nor.getY(i); Nn[u + 2] += nor.getZ(i); } }
+  const T = idx ? idx.count : N, deg = new Int32Array(U + 1);
+  const tri = j => ids[idx ? idx.getX(j) : j];
+  for (let j = 0; j < T; j += 3) { const a = tri(j), b = tri(j + 1), c = tri(j + 2); deg[a] += 2; deg[b] += 2; deg[c] += 2; }
+  const start = new Int32Array(U + 1); for (let u = 0; u < U; u++) start[u + 1] = start[u] + deg[u];
+  const adj = new Int32Array(start[U]), fill = start.slice(0, U);
+  for (let j = 0; j < T; j += 3) { const a = tri(j), b = tri(j + 1), c = tri(j + 2); adj[fill[a]++] = b; adj[fill[a]++] = c; adj[fill[b]++] = a; adj[fill[b]++] = c; adj[fill[c]++] = a; adj[fill[c]++] = b; }
+  let A = P0.slice(), B = new Float32Array(U * 3);
+  for (let it = 0; it < 18; it++) {         // 抹平 18 次 ≈ 幾公分的範圍：肌肉之間的溝會浮現，皮膚的細紋不會
+    for (let u = 0; u < U; u++) {
+      const s0 = start[u], s1 = start[u + 1]; if (s1 === s0) { B[u * 3] = A[u * 3]; B[u * 3 + 1] = A[u * 3 + 1]; B[u * 3 + 2] = A[u * 3 + 2]; continue; }
+      let x = 0, y = 0, z = 0; for (let e = s0; e < s1; e++) { const v = adj[e] * 3; x += A[v]; y += A[v + 1]; z += A[v + 2]; }
+      const n = s1 - s0; B[u * 3] = x / n; B[u * 3 + 1] = y / n; B[u * 3 + 2] = z / n;
+    }
+    const t = A; A = B; B = t;
+  }
+  const cav = new Float32Array(U);
+  for (let u = 0; u < U; u++) {
+    const o = u * 3, l = Math.hypot(Nn[o], Nn[o + 1], Nn[o + 2]) || 1;
+    const d = ((A[o] - P0[o]) * Nn[o] + (A[o + 1] - P0[o + 1]) * Nn[o + 1] + (A[o + 2] - P0[o + 2]) * Nn[o + 2]) / l;   // > 0：這一點比抹平後的表面低 = 凹處
+    const t = Math.min(1, Math.max(0, (d - 0.0015) / 0.012)); cav[u] = t * t * (3 - 2 * t);
+  }
+  const out = new Float32Array(N); for (let i = 0; i < N; i++) out[i] = cav[ids[i]];
+  geo.setAttribute('aCav', new THREE.BufferAttribute(out, 1));
+}
+function f1Look(mat, kind, f) {
+  mat.envMap = f1Env(); mat.envMapIntensity = P.f1Env; mat.userData.f1Kind = kind;
+  const uKind = { value: kind };   // 0 身體＋短褲、1 臉、2 圍兜、3 帽子
+  const S = f.f1sh;
+  mat.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, F1U, { uKind, uShMap: S.uShMap, uShMat: S.uShMat, uShK: S.uShK });
+    sh.vertexShader = 'varying vec3 vF1W; attribute float aCav; varying float vCav; varying vec3 vObjP;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n  vF1W = (modelMatrix * vec4(transformed, 1.0)).xyz; vCav = aCav; vObjP = position;');
+    sh.fragmentShader = `uniform float uOil, uSss, uSheen, uLeather, uRim, uFill, uKind, uShK; uniform vec3 uRimDir, uFillDir, uRimCol, uFillCol;
+      uniform sampler2D uShMap; uniform mat4 uShMat; varying vec3 vF1W; varying float vCav; uniform float uCav;
+      varying vec3 vObjP; uniform float uVein, uPore, uHatRed; float f1VeinM;
+      float f1h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float f1n3(vec3 x) { vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(f1h3(i), f1h3(i + vec3(1,0,0)), f.x), mix(f1h3(i + vec3(0,1,0)), f1h3(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(f1h3(i + vec3(0,0,1)), f1h3(i + vec3(1,0,1)), f.x), mix(f1h3(i + vec3(0,1,1)), f1h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+      // 皮膚表面的高度（公尺）：血管（前臂、上臂、小腿的長條隆起）＋毛孔（很細的凹凸）。用綁定姿勢的座標算，所以會黏在身上跟著動
+      //   模型座標：z 朝上、x 往兩側（T 字站姿時手臂沿著 x），-y 是正面、+y 是背面（Blender 原始座標）
+      float f1SkinH(vec3 p, float skin) {
+        float ax = abs(p.x);
+        float arm = smoothstep(0.30, 0.40, ax) * (1.0 - smoothstep(0.86, 0.92, ax));            // 上臂到手背
+        float calf = (1.0 - smoothstep(0.30, 0.42, ax)) * smoothstep(0.08, 0.14, p.z) * (1.0 - smoothstep(0.42, 0.52, p.z)) * smoothstep(-0.01, 0.03, p.y);   // 小腿後側
+        float pec = (1.0 - smoothstep(0.20, 0.30, ax)) * smoothstep(1.28, 1.34, p.z) * (1.0 - smoothstep(1.42, 1.48, p.z)) * (1.0 - smoothstep(-0.03, 0.01, p.y)) * 0.6;   // 胸肌上緣、肩膀前側淡淡幾條
+        float back = (1.0 - smoothstep(0.30, 0.38, ax)) * smoothstep(1.04, 1.10, p.z) * (1.0 - smoothstep(1.50, 1.58, p.z)) * smoothstep(0.0, 0.04, p.y);   // 背：背闊肌、下背、斜方肌
+        float region = max(max(max(arm, calf), pec), back) * skin;
+        float h = 0.0;
+        if (region > 0.001) {
+          // 分支網狀：座標先用低頻雜訊扭彎（主幹會彎曲），主幹的粗細沿路變化；再疊一層較細、較密的支脈，只在主幹附近出現（看起來像從主幹分出去）
+          vec3 q = arm > 0.01 ? vec3(ax * 3.2, p.y * 16.0, p.z * 16.0)
+                 : back > 0.01 ? vec3(ax * 11.0 + p.z * 5.0, p.y * 16.0, p.z * 14.0 - ax * 8.0)       // 背：斜斜地往外上方走（沿著背闊肌的方向）
+                 : vec3(p.x * 16.0, p.y * 16.0, p.z * 3.6);
+          vec3 w = vec3(f1n3(q * 0.6), f1n3(q * 0.6 + 3.1), f1n3(q * 0.6 + 6.7)) - 0.5;
+          vec3 qa = q + w * 1.8;
+          float r1 = 1.0 - abs(2.0 * f1n3(qa) - 1.0);
+          float thick = mix(0.86, 0.955, f1n3(q * 0.45 + 11.0));                  // 粗細：有的段落鼓起來、有的細到快看不見
+          float trunk = pow(smoothstep(thick, 0.996, r1), 1.4);
+          vec3 qb = qa * 2.3 + w * 1.3 + 5.0;
+          float r2 = 1.0 - abs(2.0 * f1n3(qb) - 1.0);
+          float branch = pow(smoothstep(0.925, 0.997, r2), 1.5) * smoothstep(0.5, 0.82, r1);
+          float r3 = 1.0 - abs(2.0 * f1n3(qa * 4.6 + w * 2.0 + 9.0) - 1.0);
+          float twig = pow(smoothstep(0.965, 0.998, r3), 1.6) * smoothstep(0.6, 0.85, max(r1, r2));
+          // 密度：前臂最密（主幹＋支脈＋細枝）、上臂一兩條主要的、小腿稀疏、胸口淡
+          float fore = smoothstep(0.52, 0.6, ax) * arm, upper = (1.0 - smoothstep(0.52, 0.6, ax)) * arm;
+          float v = fore * (trunk + 0.6 * branch + 0.3 * twig)
+                  + upper * (trunk * 1.0 + 0.35 * branch)
+                  + calf * (trunk * 0.8 + 0.4 * branch)
+                  + pec * (trunk * 0.7)
+                  + back * (pow(smoothstep(thick - 0.05, 0.996, r1), 1.2) * 1.1 + 0.7 * branch + 0.35 * twig) * mix(0.6, 1.0, smoothstep(0.08, 0.22, ax));   // 背：兩側背闊肌和下背比中間的脊椎溝多
+          f1VeinM = min(v, 1.2) * skin;
+          h += f1VeinM * 0.0017 * (1.0 + 0.7 * back) * uVein;   // 背：皮膚面積大、光很平，血管要再鼓一點才看得到
+        }
+        h -= skin * f1n3(p * 650.0) * 0.00012 * uPore;           // 毛孔
+        return h;
+      }\n
+      float f1Skin, f1Lea, f1Blk, f1Clo;
+      float f1Shadow(vec3 wn) {
+        vec4 sc = uShMat * vec4(vF1W + wn * 0.015, 1.0); vec3 q = sc.xyz / sc.w * 0.5 + 0.5;
+        if (q.x < 0.0 || q.x > 1.0 || q.y < 0.0 || q.y > 1.0 || q.z > 1.0) return 1.0;
+        float s = 0.0; vec2 tx = vec2(1.0 / ${F1SH_N}.0);
+        for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) s += step(q.z - 0.0012, texture2D(uShMap, q.xy + vec2(float(i), float(j)) * tx * 1.25).x);
+        return s / 9.0;
+      }\n` + sh.fragmentShader
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      { float shf = mix(1.0, f1Shadow(normalize((vec4(normal, 0.0) * viewMatrix).xyz)), uShK);
+        reflectedLight.directDiffuse *= shf; reflectedLight.directSpecular *= shf;
+        float cv = clamp(vCav * uCav * (1.0 - step(abs(uKind - 2.0), 0.5)), 0.0, 0.92);   // 圍兜不套肉縫陰影（布上的皺褶不是肌肉）   // 肉縫陰影：凹處吃到的環境光、反光都變少，直射光也少一些
+        reflectedLight.indirectDiffuse *= 1.0 - cv; reflectedLight.indirectSpecular *= 1.0 - cv * 0.8;
+        reflectedLight.directDiffuse *= 1.0 - cv * 0.6; reflectedLight.directSpecular *= 1.0 - cv * 0.5; }`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      if (uKind > 2.5 && uKind < 3.5 && uHatRed > 0.0) {      // 帽子：皮革從深酒紅調成跟短褲、靴子一樣的鮮紅（毛邊、牛角不動）
+        vec3 c0 = diffuseColor.rgb; float mx0 = max(c0.r, max(c0.g, c0.b)), mn0 = min(c0.r, min(c0.g, c0.b));
+        float lea0 = smoothstep(2.5, 4.0, c0.r / (c0.g + 1e-3)) * smoothstep(0.45, 0.65, (mx0 - mn0) / (mx0 + 1e-4));
+        diffuseColor.rgb *= mix(vec3(1.0), vec3(6.7, 5.3, 3.4), lea0 * uHatRed);
+      }`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      f1VeinM = 0.0;
+      if (uKind < 1.5 && (uVein > 0.0 || uPore > 0.0)) {
+        vec3 c0 = diffuseColor.rgb; float L0 = dot(c0, vec3(0.2126, 0.7152, 0.0722)), rg0 = c0.r / (c0.g + 1e-3);
+        float skin0 = smoothstep(1.25, 1.6, rg0) * (1.0 - smoothstep(3.0, 4.5, rg0)) * smoothstep(0.015, 0.05, L0);
+        skin0 *= 1.0 - smoothstep(0.47, 0.56, vObjP.z) * (1.0 - smoothstep(0.98, 1.04, vObjP.z)) * (1.0 - smoothstep(0.34, 0.40, abs(vObjP.x))) * step(uKind, 0.5);   // 短褲範圍：皮革上亮的地方顏色接近皮膚，不要長毛孔
+        float H = f1SkinH(vObjP, skin0);
+        vec3 sx = dFdx(-vViewPosition), sy = dFdy(-vViewPosition), R1 = cross(sy, normal), R2 = cross(normal, sx);
+        float det = dot(sx, R1); vec2 dH = vec2(dFdx(H), dFdy(H));
+        vec3 g = sign(det) * (dH.x * R1 + dH.y * R2);
+        normal = normalize(abs(det) * normal - g);
+        diffuseColor.rgb *= 1.0 - f1VeinM * uVein * vec3(0.10, 0.16, 0.10);   // 血管：皮下透出一點點偏冷的暗色
+      }`)
+      .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+      {
+        vec3 c = diffuseColor.rgb; float L = dot(c, vec3(0.2126, 0.7152, 0.0722));
+        float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), sat = (mx - mn) / (mx + 1e-4), rg = c.r / (c.g + 1e-3);
+        f1Lea = smoothstep(3.5, 6.0, rg) * smoothstep(0.55, 0.8, sat);
+        f1Skin = smoothstep(1.25, 1.6, rg) * (1.0 - smoothstep(3.0, 4.5, rg)) * smoothstep(0.015, 0.05, L);
+        f1Blk = (1.0 - smoothstep(0.012, 0.035, L)) * (1.0 - smoothstep(0.35, 0.6, sat));
+        f1Clo = (1.0 - smoothstep(0.18, 0.4, sat)) * smoothstep(0.05, 0.16, L);
+        if (uKind > 0.5 && uKind < 1.5) { f1Lea = 0.0; f1Blk = 0.0; f1Clo *= 0.3; }      // 臉：鬍子不要亮光
+        if (uKind > 1.5 && uKind < 4.5) f1Skin = 0.0;                                  // 5 = 衣服裡露出來的脖子、手：照樣套皮膚效果                                                 // 圍兜、帽子沒有皮膚
+        material.clearcoat = clamp(f1Skin * uOil * 0.55 + f1Lea * uLeather + f1Blk * uLeather * 0.6, 0.0, 1.0);
+        material.clearcoatRoughness = mix(0.38, 0.2, f1Lea + f1Blk * 0.5);
+        material.roughness = clamp(material.roughness * (1.0 - 0.25 * f1Skin * uOil), 0.06, 1.0);
+        material.sheenColor = f1Skin * vec3(0.6, 0.16, 0.1) * uSss + f1Clo * vec3(0.85, 0.83, 0.8) * uSheen;
+        material.sheenRoughness = mix(0.45, 0.85, f1Clo);
+        totalEmissiveRadiance += f1Skin * uSss * diffuseColor.rgb * vec3(0.16, 0.04, 0.025);   // 皮膚暗面的紅潤（光在皮下散開的感覺）
+      }`)
+      .replace('#include <opaque_fragment>', `{
+        vec3 V = normalize(vViewPosition); float nv = clamp(dot(normal, V), 0.0, 1.0);
+        float fres = pow(1.0 - nv, 2.6);
+        float side = clamp(dot(normal, uRimDir) * 0.6 + 0.4, 0.0, 1.0);
+        vec3 tint = mix(vec3(1.0), diffuseColor.rgb / max(0.04, max(diffuseColor.r, max(diffuseColor.g, diffuseColor.b))), 0.55);
+        outgoingLight += uRimCol * tint * fres * side * uRim * (0.35 + 0.65 * (f1Skin + f1Lea + f1Clo));
+        outgoingLight += diffuseColor.rgb * uFillCol * clamp(dot(normal, uFillDir), 0.0, 1.0) * uFill * (1.0 - clamp(vCav * uCav * (1.0 - step(abs(uKind - 2.0), 0.5)), 0.0, 0.9));
+      }
+      #include <opaque_fragment>`);
+  };
+  mat.customProgramCacheKey = () => 'f1look';
+}
+// 第一個鬥士的凹凸／粗糙度貼圖（glTF 格式：綠色＝粗糙度、藍色＝金屬度）
+const _f1Tex = {};
+function f1Tex(name) {
+  if (_f1Tex[name]) return _f1Tex[name];
+  const t = new THREE.TextureLoader().load(`${name}.jpg`);
+  t.colorSpace = THREE.NoColorSpace; t.anisotropy = 4;
+  return (_f1Tex[name] = t);
+}
+// 第二個鬥士的硬零件：GLB 裡每個物件叫 P__<骨頭>__<零件>，座標跟 Mixamo 綁好的身體（Blender 裡 Z 朝上、公尺）一樣。
+//   用兩根骨頭的位置算出 GLB → 模型的縮放和位移，在綁定姿勢時用 bone.attach() 掛上去（保持世界位置），之後就跟著骨頭整塊動、不變形
+const F_BONE_REF = {   // Blender 量到的骨頭位置（換成 Y 朝上），每個角色不同
+  fighter2: { Hips: new THREE.Vector3(0, 1.169, 0.021), Head: new THREE.Vector3(0, 1.836, -0.008), LeftArm: new THREE.Vector3(0.296, 1.629, -0.023) },
+  fighter3: { Hips: new THREE.Vector3(0, 1.462, -0.002), Head: new THREE.Vector3(0, 2.071, -0.037), LeftArm: new THREE.Vector3(0.327, 1.856, -0.071) },
+};
+function attachParts(model, gltf, F2_BONE_REF) {
+  model.updateMatrixWorld(true);
+  const bw = n => model.getObjectByName('mixamorig' + n).getWorldPosition(new THREE.Vector3());
+  const hips = bw('Hips'), head = bw('Head');
+  const k = (head.y - hips.y) / (F2_BONE_REF.Head.y - F2_BONE_REF.Hips.y);
+  const root = gltf.scene.clone(true);
+  root.scale.setScalar(k); root.position.copy(hips).addScaledVector(F2_BONE_REF.Hips, -k);
+  root.updateMatrixWorld(true);
+  const err = bw('LeftArm').distanceTo(F2_BONE_REF.LeftArm.clone().multiplyScalar(k).add(root.position));
+  if (err > 0.05 * k) console.warn('第二個鬥士：零件對位誤差偏大', err / k, '公尺');
+  for (const node of [...root.children]) {
+    const m = /^P__([A-Za-z0-9]+)__/.exec(node.name); if (!m) continue;
+    const bone = model.getObjectByName('mixamorig' + m[1]);
+    if (bone) bone.attach(node); else console.warn('找不到骨頭', m[1]);
+  }
+}
+// ---- 第二個鬥士的袴（裙子）----
+//   Mixamo 把裙子當褲子綁：左半跟左腿、右半跟右腿，腳一張開裙子就被撕成一條條。
+//   ① 把裙子頂點身上「腿骨」的權重全部移到「髖部」：裙子整件跟著腰轉，不再被兩腿拉開（腳在裙子下面照常走）
+//   ② 裙襬分成 8 個扇形，每個扇形一個彈簧：身體動時落後再追上（甩動）；腳往外踢時把那一側的裙襬往外頂。
+//      在著色器裡把位移加到頂點上，越靠下襬動越多
+const SK_N = 8;
+function setupSkirt(f, mesh) {
+  const g = mesh.geometry, mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  const bi = mats.findIndex(m => /F3_0/.test((m.userData && m.userData.srcName) || m.name || ''));
+  const bodyMat = bi >= 0 ? mats[bi] : null;
+  if (!bodyMat) { console.warn('第二個鬥士：找不到身體材質，裙子不處理'); return; }
+  const bones = mesh.skeleton.bones, bIdx = n => bones.findIndex(b => b.name === 'mixamorig' + n);
+  const hipsI = bIdx('Hips'), hips = bones[hipsI];
+  const legI = new Set(['LeftUpLeg', 'LeftLeg', 'LeftFoot', 'LeftToeBase', 'RightUpLeg', 'RightLeg', 'RightFoot', 'RightToeBase'].map(bIdx).filter(i => i >= 0));
+  mesh.updateWorldMatrix(true, false); hips.updateWorldMatrix(true, false);
+  const inv3 = new THREE.Matrix3().setFromMatrix4(mesh.matrixWorld).invert();
+  const up = new THREE.Vector3(0, 1, 0).applyMatrix3(inv3).normalize(), fwd = new THREE.Vector3(0, 0, 1).applyMatrix3(inv3).normalize(), side = new THREE.Vector3(1, 0, 0).applyMatrix3(inv3).normalize();
+  const hipsL = mesh.worldToLocal(hips.getWorldPosition(new THREE.Vector3()));
+  const pos = g.attributes.position, idx = g.index, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+  const vs = new Set();
+  for (const gr of g.groups) if (gr.materialIndex === bi) for (let i = gr.start; i < gr.start + gr.count; i++) vs.add(idx ? idx.getX(i) : i);
+  const hY = hipsL.dot(up), v = new THREE.Vector3();
+  let hemY = Infinity; for (const i of vs) { const y = v.fromBufferAttribute(pos, i).dot(up); if (y < hemY) hemY = y; }
+  const waistY = hY + (hY - hemY) * 0.12;          // 腰繩附近開始
+  const aSk = new Float32Array(pos.count), aSec = new Float32Array(pos.count);
+  let rHem = 0;
+  if (!g.userData.skirtDone) {
+    for (const i of vs) {
+      v.fromBufferAttribute(pos, i); const y = v.dot(up);
+      if (y > waistY) continue;
+      const t = Math.min(1, Math.max(0, (waistY - y) / (waistY - hemY)));
+      const a = Math.min(1, t / 0.15);               // 腰下一小段內逐漸把腿的權重移走，避免在腰上出現折痕
+      // 腿骨的權重移到髖部
+      const ids = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)], ws = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)];
+      let moved = 0; for (let k = 0; k < 4; k++) if (legI.has(ids[k])) { moved += ws[k] * a; ws[k] *= 1 - a; }
+      let hk = ids.indexOf(hipsI);
+      if (hk < 0) { hk = ws.indexOf(Math.min(...ws)); moved += ws[hk]; ids[hk] = hipsI; ws[hk] = 0; }
+      ws[hk] += moved;
+      si.setXYZW(i, ids[0], ids[1], ids[2], ids[3]); sw.setXYZW(i, ws[0], ws[1], ws[2], ws[3]);
+      const d = v.clone().sub(hipsL), ang = Math.atan2(d.dot(side), d.dot(fwd));
+      aSk[i] = t * t; aSec[i] = ((ang / (Math.PI * 2) + 1) % 1) * SK_N;
+      if (t > 0.9) rHem = Math.max(rHem, Math.hypot(d.dot(side), d.dot(fwd)));
+    }
+    si.needsUpdate = sw.needsUpdate = true;
+    g.setAttribute('aSkirt', new THREE.BufferAttribute(aSk, 1)); g.setAttribute('aSkSec', new THREE.BufferAttribute(aSec, 1));
+    g.userData.skirtDone = { hemY, rHem };
+  }
+  ({ hemY, rHem } = g.userData.skirtDone);
+  // 每個扇形下襬中點：記在髖部骨頭的區域座標，之後每一格用骨頭換算世界位置
+  const sec = [];
+  for (let k = 0; k < SK_N; k++) {
+    const ang = (k + 0.5) / SK_N * Math.PI * 2;
+    const pL = hipsL.clone().add(up.clone().multiplyScalar(hemY - hY + (hY - hemY) * 0.15)).add(fwd.clone().multiplyScalar(Math.cos(ang) * rHem)).add(side.clone().multiplyScalar(Math.sin(ang) * rHem));
+    const pW = mesh.localToWorld(pL.clone());
+    sec.push({ local: hips.worldToLocal(pW.clone()), x: new THREE.Vector3(), v: new THREE.Vector3(), init: false });
+  }
+  const feet = ['LeftFoot', 'RightFoot'].map(n => bones[bIdx(n)]).filter(Boolean);
+  const feetRest = feet.map(b => hips.worldToLocal(b.getWorldPosition(new THREE.Vector3())));
+  const u = { uSk: { value: Array.from({ length: SK_N }, () => new THREE.Vector3()) } };
+  const prev = bodyMat.onBeforeCompile;
+  bodyMat.onBeforeCompile = (sh, r) => {
+    prev && prev.call(bodyMat, sh, r);
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = `uniform vec3 uSk[${SK_N}]; attribute float aSkirt; attribute float aSkSec;\n` + sh.vertexShader.replace('#include <skinning_vertex>',
+      `#include <skinning_vertex>
+  { float s0 = floor(aSkSec - 0.5); float fr = aSkSec - 0.5 - s0; int i0 = int(mod(s0, ${SK_N}.0)); int i1 = int(mod(s0 + 1.0, ${SK_N}.0));
+    transformed += mix(uSk[i0], uSk[i1], fr) * aSkirt; }`);
+  };
+  bodyMat.customProgramCacheKey = () => 'f2skirt';
+  bodyMat.needsUpdate = true;
+  f.skirt = { mesh, hips, sec, feet, feetRest, u, rHem: 0 };
+}
+const _sk1 = new THREE.Vector3(), _sk2 = new THREE.Vector3(), _sk3 = new THREE.Vector3(), _skM = new THREE.Matrix3(), _skQ = new THREE.Quaternion();
+function stepSkirt(f, dt) {
+  const S = f.skirt; S.hips.updateWorldMatrix(true, false); S.mesh.updateWorldMatrix(true, false);
+  const hc = S.hips.getWorldPosition(_sk3);
+  // 彈簧在「角色自己的座標」裡算（扣掉整個人的位移）：不然一跑起來彈簧就一直落後、裙子整件往後飄。整個人的加速度另外加一點慣性
+  const root = f.mesh.getWorldPosition(new THREE.Vector3());
+  S.rootPrev ??= root.clone(); S.rootVel ??= new THREE.Vector3();
+  const vel = root.clone().sub(S.rootPrev).divideScalar(Math.max(dt, 1e-4)); S.rootPrev.copy(root);
+  const acc = vel.clone().sub(S.rootVel).divideScalar(Math.max(dt, 1e-4)); S.rootVel.copy(vel);
+  if (acc.length() > 60) acc.setLength(60);
+  const w = 2 * Math.PI * P.skFreq, K = w * w, C = 2 * P.skDamp * w, n = 4, h = Math.min(dt, 0.05) / n;
+  // 腳往外移動的量（髖部區域座標 → 世界方向）
+  const push = [];
+  S.feet.forEach((b, i) => { const cur = S.hips.worldToLocal(b.getWorldPosition(new THREE.Vector3())); const dl = cur.sub(S.feetRest[i]);
+    push.push(dl.applyQuaternion(S.hips.getWorldQuaternion(_skQ))); });
+  _skM.setFromMatrix4(S.mesh.matrixWorld).invert();
+  S.sec.forEach((s, k) => {
+    const P0 = S.hips.localToWorld(_sk1.copy(s.local)).sub(root);
+    const dir = _sk2.copy(P0).add(root).sub(hc); dir.y = 0; const r = dir.length() || 1; dir.divideScalar(r);
+    const tgt = P0.clone();
+    for (const pv of push) { const a = pv.x * dir.x + pv.z * dir.z; if (a > 0) tgt.addScaledVector(dir, Math.min(0.15, a * 0.7) * P.skFoot); }
+    if (!s.init || s.x.distanceTo(tgt) > 2) { s.x.copy(tgt); s.v.set(0, 0, 0); s.init = true; }
+    for (let i = 0; i < n; i++) { const a2 = tgt.clone().sub(s.x).multiplyScalar(K).addScaledVector(s.v, -C).addScaledVector(acc, -0.25); s.v.addScaledVector(a2, h); s.x.addScaledVector(s.v, h); }
+    const off = s.x.clone().sub(P0).multiplyScalar(P.skSway).add(tgt.clone().sub(P0).multiplyScalar(1 - P.skSway));   // 腳頂的部分永遠套用，甩動的部分照幅度
+    const inward = off.x * dir.x + off.z * dir.z; if (inward < 0) off.addScaledVector(dir, -inward * 0.8);   // 不往腿裡面縮
+    off.y = Math.max(off.y, -0.05);
+    if (off.length() > 0.2) off.setLength(0.2);
+    S.u.uSk.value[k].copy(off).applyMatrix3(_skM);       // 世界 → 模型區域（含縮放）
+  });
+}
+// ---- 臉不要被脖子拉歪 ----
+//   Mixamo 自動綁骨時，下半張臉（下巴、嘴、鬍子）有一部分綁在「脖子」骨頭上。脖子和頭轉的角度不一樣時
+//   （待機晃動、轉頭看對手），下巴就被拖向一邊，眼睛卻不動 → 整張臉看起來是歪的。所有角色都有這個問題。
+//   做法：臉的頂點把「脖子」（第一個鬥士還有「胸口」）的權重全部移到「頭」，整顆頭變成一個硬塊；只留脖子下段慢慢過渡，接縫不會裂開。
+//   有獨立「頭」材質的角色（F1_1／F2_1／F3_1）：整個頭部材質都綁死在頭上；沒有的（道服角色）：用高度判斷
+function rigidFace(mesh) {
+  const g = mesh.geometry; if (g.userData.rigidFace) return; g.userData.rigidFace = true;
+  const bones = mesh.skeleton.bones, find = n => bones.findIndex(b => b.name === 'mixamorig' + n);
+  const hI = find('Head'), nI = find('Neck'); if (hI < 0 || nI < 0) return;
+  // 綁定姿勢下脖子、頭骨頭的位置（模型自己的座標）
+  const bindPos = i => new THREE.Vector3().setFromMatrixPosition(mesh.skeleton.boneInverses[i].clone().invert()).applyMatrix4(mesh.bindMatrixInverse);
+  const N = bindPos(nI), H = bindPos(hI), ax = H.clone().sub(N), L = ax.length(); ax.normalize();
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  const headMat = mats.findIndex(m => /F[123]_1(\b|_|$)|F4_2(\b|_|$)/.test(m.name || ''));
+  const inHead = new Uint8Array(g.attributes.position.count);
+  if (headMat >= 0 && g.groups.length) for (const gr of g.groups) if (gr.materialIndex === headMat) for (let i = gr.start; i < gr.start + gr.count; i++) inHead[g.index ? g.index.getX(i) : i] = 1;
+  const pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight, v = new THREE.Vector3();
+  let moved = 0;
+  for (let i = 0; i < pos.count; i++) {
+    if (inHead[i]) { si.setXYZW(i, hI, 0, 0, 0); sw.setXYZW(i, 1, 0, 0, 0); moved++; continue; }   // 頭部材質：整個綁在頭上（有的角色連胸口骨頭都分到臉上的權重）
+    const ids = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)];
+    const kN = ids.indexOf(nI); if (kN < 0) continue;
+    const ws = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)]; if (ws[kN] <= 0) continue;
+    let a;
+    { const h = v.fromBufferAttribute(pos, i).sub(N).dot(ax) / L; a = Math.min(1, Math.max(0, (h - 0.35) / 0.25)); a = a * a * (3 - 2 * a); }
+    if (a <= 0) continue;
+    let kH = ids.indexOf(hI);
+    let amt = ws[kN] * a; ws[kN] -= amt;
+    if (kH < 0) {                                  // 頭骨頭不在這個頂點的 4 個欄位裡：挪一個欄位給它
+      if (ws[kN] <= 1e-6) kH = kN;
+      else { let km = -1; for (let k = 0; k < 4; k++) if (k !== kN && (km < 0 || ws[k] < ws[km])) km = k; amt += ws[km]; kH = km; }
+      ids[kH] = hI; ws[kH] = 0;
+    }
+    ws[kH] += amt;
+    si.setXYZW(i, ids[0], ids[1], ids[2], ids[3]); sw.setXYZW(i, ws[0], ws[1], ws[2], ws[3]); moved++;
+  }
+  si.needsUpdate = sw.needsUpdate = true;
+  console.log('臉綁死在頭上：調整了', moved, '個頂點', headMat >= 0 ? '（用頭部材質）' : '（用高度判斷）');
+}
+// 背心比裡面的和服貼得太近，降面數後和服會從背心穿出來（白色斑塊）：把背心的頂點沿法線往外推一點
+function f2PushVest(o) {
+  const g = o.geometry; if (g.userData.vestPushed) return; g.userData.vestPushed = true;
+  const mats = Array.isArray(o.material) ? o.material : [o.material];
+  const vi = mats.findIndex(m => /F3_2/.test(m.name || ''));
+  if (vi < 0 || !g.groups.length) return;
+  g.computeBoundingBox(); const H = g.boundingBox.max.y - g.boundingBox.min.y, d = H / 2.097 * 0.007;   // 約 7 公釐（換成模型自己的單位）
+  const pos = g.attributes.position, nor = g.attributes.normal, idx = g.index, done = new Set();
+  for (const gr of g.groups) {
+    if (gr.materialIndex !== vi) continue;
+    for (let i = gr.start; i < gr.start + gr.count; i++) {
+      const v = idx ? idx.getX(i) : i; if (done.has(v)) continue; done.add(v);
+      pos.setXYZ(v, pos.getX(v) + nor.getX(v) * d, pos.getY(v) + nor.getY(v) * d, pos.getZ(v) + nor.getZ(v) * d);
+    }
+  }
+  pos.needsUpdate = true;
+}
 function attachModel(f) {
-  const model = SkeletonUtils.clone(rigAssets.base);
-  model.scale.setScalar(rigAssets.scale);
+  const A = f.alt || null;   // 這個人選的角色（?char= 玩家、?foe= 對手）
+  const file = A ? A.file : rigAssets.charFile, CL = A ? A.clips : rigAssets.clips;
+  const model = SkeletonUtils.clone(A ? A.base : rigAssets.base);
+  model.scale.setScalar(A ? A.scale : rigAssets.scale);
+  if (A && A.parts) attachParts(model, A.parts, F_BONE_REF[A.file]);
   model.traverse(o => {
     if (!o.isMesh) return;
+    if (o.isSkinnedMesh) rigidFace(o);
     o.castShadow = true; o.frustumCulled = false;
     const src = Array.isArray(o.material) ? o.material[0] : o.material;
     let mt;
-    if (src && src.map) {                  // 有貼圖的角色（道服）：保留貼圖，CPU 整體染一點顏色以便分辨
+    if (/^fighter/.test(file) && src && src.map) {
+      let bibMat = null;
+      if (!f.f1sh) f1ShadowSetup(f);   // 第一個鬥士：身體、臉、圍兜、帽子各有一張貼圖（一個模型多個材質）；CPU 只輕微染色
+      const one = m => { if (m.map) m.map.colorSpace = THREE.SRGBColorSpace;
+        // 材質名稱 → 凹凸貼圖和粗糙度貼圖（從 Meshy 原檔取出）。舊版 F1_0～3＝身體、臉、圍兜、帽子；第二版 F2_0～3＝身體、臉、帽子、圍兜
+        const mk = /F([1234])_(\d+)/.exec(m.name || ''), ver = mk ? mk[1] : '1', idx = mk ? +mk[2] : 0;
+        // k[1] = 零件種類：0 身體、1 臉、2 圍兜（會晃）、3 其他（帽子、皮革、盔甲…不套皮膚效果）。第三組 F3 = 第二個鬥士：0 身體、1 頭，其餘都是 3
+        // 第四組 F4 = 第三個鬥士：0 上半身（衣服＋脖子＋手：5＝衣服但皮膚部分套皮膚效果）、1 褲子、2 頭、3 馬尾
+        const k = mk ? [0, (ver === '2' ? [0, 1, 3, 2][idx] : ver === '3' ? (idx === 1 ? 1 : 4) : ver === '4' ? [5, 4, 1, 4][idx] : idx) + ''] : null;   // 4 = 第二個鬥士的衣服和盔甲（不套第一隻帽子的換色）
+        const tp = ver === '4' ? `f4_${idx}` : ver === '3' ? `f3_${idx}` : ver === '2' ? `f2_${idx}` : `f1_${idx}`;
+        // 金屬度一律 0：Meshy 會把皮革標成半金屬，場景沒有環境反射時會變黑。亮光漆（clearcoat）和絨面光澤（sheen）只開著，實際用多少由著色器依顏色決定
+        const x = new THREE.MeshPhysicalMaterial({ map: m.map || null, color: f === cpu ? 0xd8dcf0 : 0xffffff, roughness: 1, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.3, sheen: 1, sheenRoughness: 0.6, sheenColor: 0xffffff });
+        x.name = m.name || '';
+        if (k) { x.normalMap = f1Tex(`${tp}_normal`); x.roughnessMap = f1Tex(`${tp}_orm`); x.normalScale.set(1, 1); }
+        else x.roughness = 0.62;
+        f1Look(x, k ? +k[1] : 0, f);
+        if (k && k[1] === '2') bibMat = x;     // 圍兜
+        f.mats.push(x); return x; };
+      if (file === 'fighter2' && o.isSkinnedMesh) f2PushVest(o);
+      o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material);
+      f1Cavity(o.geometry);
+      o.receiveShadow = true;               // 自己的影子：帽簷落在臉上、圍兜落在肚子上
+      if (bibMat) setupBib(f, o, bibMat);
+      if (file === 'fighter2' && o.isSkinnedMesh) setupSkirt(f, o);
+      return;
+    } else if (src && src.map) {                  // 有貼圖的角色（道服）：保留貼圖，CPU 整體染一點顏色以便分辨
       src.map.colorSpace = THREE.SRGBColorSpace;
       mt = new THREE.MeshStandardMaterial({ map: src.map, color: f.look.gi ?? 0xffffff, roughness: 0.85 });
     } else {                               // 沒貼圖的 X Bot：用兩種顏色
@@ -3050,8 +4068,9 @@ function attachModel(f) {
   pivot.position.y = BODY_Y; model.position.y = -BODY_Y;
   pivot.add(model); f.mesh.add(pivot);
   const mixer = new THREE.AnimationMixer(model), actions = {};
-  for (const n in rigAssets.clips) actions[n] = mixer.clipAction(rigAssets.clips[n]);
+  for (const n in CL) actions[n] = mixer.clipAction(CL[n]);
   f.model = { pivot, model, mixer, actions, cur: null, key: '', yawOff: 0, wasGround: true, airSeq: 0 };
+  if (/^fighter1/.test(file)) f.model.pinky = setupPinky(model);   // 第一個鬥士：永遠翹小指
   f.rig.body.visible = false;               // 隱藏方塊人
 }
 // ---- 動作打包檔 ----
@@ -3110,6 +4129,21 @@ async function loadRig() {
     if (!base) throw new Error('沒有角色模型');
     const longest = obj => obj.animations.reduce((a, b) => (b.duration > a.duration ? b : a));   // 有些檔案會附帶一個空動作
     rigAssets.base = base;
+    rigAssets.alts = {};
+    for (const [who, spec] of [[player, P_SPEC], [cpu, C_SPEC]]) {
+      if (!spec) continue;
+      try {
+        let A = rigAssets.alts[spec.file];
+        if (!A) {
+          A = { file: spec.file, size: spec.size, base: await loader.loadAsync(`${spec.file}.fbx`) };
+          if (spec.file === 'fighter2' || spec.file === 'fighter3') A.parts = await new GLTFLoader().loadAsync(`${spec.file}_parts.glb`);   // 硬零件：盔甲、刀、馬尾（名稱裡寫著要掛的骨頭）
+          rigAssets.alts[spec.file] = A;
+        }
+        who.alt = A; who.size = spec.size;
+      }
+      catch (err) { console.warn(`角色 ${spec.file}.fbx 載入失敗，改用道服角色`, err); }
+    }
+    rigAssets.alt = player.alt || null;
     const clips = {};
     if (base.animations.length) { clips.block = lockRoot(longest(base)); clips.block.name = 'block'; }   // X Bot 檔附帶的 Body Block
     const names = Object.keys(RIG_CLIPS);
@@ -3121,6 +4155,12 @@ async function loadRig() {
     }
     if (pack) {
       Object.assign(clips, pack.clips); Object.assign(rigAssets, pack.extras); rigAssets.fromPack = true;
+      {   // 打包檔的髖部位移是照道服角色的比例存的；換成別的角色時，依新角色的髖部高度換算（道服角色本身 ≈ 1，不會變）
+        const restHips = base.getObjectByName('mixamorigHips'), hp = clips.idle && clips.idle.tracks.find(t => /Hips\.position$/.test(t.name));
+        const k = restHips && hp ? restHips.position.y / hp.values[1] : 1;
+        rigAssets.packHipK = k;
+        if (Number.isFinite(k) && k > 0 && Math.abs(k - 1) > 0.02) for (const n in clips) for (const tr of clips[n].tracks) if (/Hips\.position$/.test(tr.name)) { tr.values = Float32Array.from(tr.values); for (let i = 0; i < tr.values.length; i++) tr.values[i] *= k; }
+      }
       for (const n of names) if (!clips[n]) rigAssets.missing.push(n);
       if (!clips.idle) throw new Error('缺少待機動作');
     } else {
@@ -3170,6 +4210,24 @@ async function loadRig() {
       };
     }
     if (clips.jump) { clips.upSpec = clips.jump.clone(); clips.upSpec.name = 'upSpec'; }   // 上升技用獨立的一份，發動時才能平滑銜接
+    // 玩家專用角色（第一個鬥士）：動作另外複製一份 —— 髖部位移依它自己的髖部高度換算，骨頭照它自己有的保留（手指比道服角色完整）
+    for (const A of Object.values(rigAssets.alts)) {
+      const have = new Set(); A.base.traverse(o => have.add(o.name));
+      const restHips = A.base.getObjectByName('mixamorigHips'), hp = clips.idle.tracks.find(t => /Hips\.position$/.test(t.name));
+      const k = restHips && hp ? restHips.position.y / hp.values[1] : 1;
+      A.clips = {};
+      for (const n in clips) {
+        const c = clips[n].clone(); c.name = n;
+        c.tracks = c.tracks.filter(tr => have.has(tr.name.slice(0, tr.name.lastIndexOf('.'))));
+        for (const tr of c.tracks) if (/Hips\.position$/.test(tr.name)) tr.values = Float32Array.from(tr.values, v => v * k);
+        A.clips[n] = c;
+      }
+      if (A.clips.combo) { A.clips.comboB = A.clips.combo.clone(); A.clips.comboB.name = 'comboB'; }
+      A.base.animations = [];
+      A.base.updateMatrixWorld(true);
+      const bx = new THREE.Box3().setFromObject(A.base);
+      A.scale = 1.85 / (bx.max.y - bx.min.y) * A.size;
+    }
     // 角色身上沒有的骨頭（例如道服角色少了部分手指）：把那些動作軌道拿掉，避免大量警告
     {
       const have = new Set(); base.traverse(o => have.add(o.name));
@@ -3237,6 +4295,15 @@ function pickClip(f) {
   } else if (f.roll) {
     once('roll', 'roll' + f.roll.dx.toFixed(2) + f.roll.dz.toFixed(2) + (f.roll.t < 0.03 ? 'a' : 'b'), C.roll ? C.roll.duration / 0.4 : 1);
     r.key = 'roll'; r.yaw = Math.atan2(f.roll.dx, f.roll.dz);
+  } else if (f.parry || f.parryOk > 0) {
+    if (C.parry) {                                                      // 彈反：Inward Block。按下後很快擋到位（PARRY_RISE 秒），判定時間內停在擋住的姿勢，之後才收手
+      const D = C.parry.duration, pk = Math.min(D, PARRY_PEAK);
+      const t = f.parry ? f.parry.t : 0;
+      const ct = f.parry ? (t < PARRY_RISE ? pk * t / PARRY_RISE : t < PARRY_WIN ? pk : pk + (D - pk) * Math.min(1, (t - PARRY_WIN) / PARRY_MISS))
+                         : pk + (D - pk) * Math.max(0, 1 - f.parryOk / 0.4);   // 彈反成功：從擋住的姿勢收手
+      Object.assign(r, { want: 'parry', key: 'parry' + f.parryUid, loop: false, fade: 0.04, setT: ct });
+    }
+    else Object.assign(r, { want: 'block', key: 'parry', fade: 0.05 });   // 沒有專用動作時：雙臂擋在身前（Body Block）
   } else if (f.shielding) {
     Object.assign(r, { want: 'block', key: 'guard', fade: 0.06 });      // 防禦：Body Block
   } else if (m && m.id === 'taunt') {
@@ -3284,6 +4351,42 @@ const _q = new THREE.Quaternion(), _qi = new THREE.Quaternion();
 // 程式對骨頭做的額外調整（放大、轉腰、腿、瞄準）每一幀都要從「動作檔原本的姿勢」開始算。
 //   動作停在同一格時（蓄力、連段等按鍵），動畫系統不會重寫骨頭，上一幀的調整會留著、越疊越多（身體一直下沉、一直轉）。
 //   所以：改一根骨頭之前先記下原值（touch），下一幀開始時全部還原（untouch）
+// ---- 翹小指 ----
+//   在所有動作和程式調整之後，把兩手小指的三節骨頭換成「伸直」的姿勢，只在第一節（指根）往外張開、往手背方向翹起，整根手指保持一直線。
+//   不管握拳、出拳、被打飛，小指都一直翹著（其他手指照動作握拳）。
+//   角度用綁定姿勢（T 字站姿，手心朝下、手指沿著 ±x）算：張開 = 繞「手心法線」轉、翹起 = 繞「前後軸」轉
+function setupPinky(model) {
+  model.updateMatrixWorld(true);
+  const mq = model.getWorldQuaternion(new THREE.Quaternion()).invert();
+  const out = [];
+  for (const [side, sgn] of [['Left', 1], ['Right', -1]]) {
+    // 第二版身體的手只有拇指＋三根手指（Meshy 把手指併在一起生成），Mixamo 綁出來沒有小指 → 用最外側的「無名指」當小指
+    let bones = [1, 2, 3].map(i => model.getObjectByName(`mixamorig${side}HandPinky${i}`));
+    if (bones.some(b => !b)) bones = [1, 2, 3].map(i => model.getObjectByName(`mixamorig${side}HandRing${i}`));
+    if (bones.some(b => !b)) continue;
+    const bindW = mq.clone().multiply(bones[0].getWorldQuaternion(new THREE.Quaternion()));   // 第一節在模型座標裡的朝向
+    const toLocal = axis => axis.clone().applyQuaternion(bindW.clone().invert()).normalize();
+    out.push({ bones, bind: bones.map(b => b.quaternion.clone()), sgn,
+      spreadAxis: toLocal(new THREE.Vector3(0, 1, 0)), liftAxis: toLocal(new THREE.Vector3(0, 0, 1)) });
+  }
+  return out;
+}
+const _pq = new THREE.Quaternion(), _pq2 = new THREE.Quaternion();
+function applyPinky(M) {
+  if (!M.pinky || !(P.f1Pinky > 0)) return;
+  const k = P.f1Pinky, sp = P.f1PinkySpread * Math.PI / 180 * k, lf = P.f1PinkyLift * Math.PI / 180 * k;
+  for (const h of M.pinky) {
+    h.bones.forEach((b, i) => {
+      touch(M, b);
+      // 從動作的姿勢往「伸直」拉（k = 1 時完全伸直）
+      b.quaternion.slerp(h.bind[i], k);
+      if (i === 0) {
+        _pq.setFromAxisAngle(h.spreadAxis, sp * h.sgn); _pq2.setFromAxisAngle(h.liftAxis, lf * h.sgn);
+        b.quaternion.multiply(_pq).multiply(_pq2);
+      }                                   // 第二、三節完全伸直（不再彎，彎了看起來像骨折）
+    });
+  }
+}
 function touch(M, b, pos) {
   const sv = M.sv ??= [], i = M.svN = (M.svN || 0) + 1;
   const e = sv[i - 1] ??= { b: null, q: new THREE.Quaternion(), p: new THREE.Vector3(), hasP: false };
@@ -3575,7 +4678,7 @@ function updateModel(f, dt, spinX, spinY) {
   const stepping = M.feet.some(ft => Math.abs(ft.v) > 0.003 || ft.up > 0.001);
   // ---- 腳步固定：站著不動（待機）時把兩隻腳釘住；人移動超過一點點或轉身，就放開、重新踩好 ----
   const spd = Math.hypot(f.vx, f.vz), inClash = game.clash && (game.clash.a === f || game.clash.v === f);
-  const calm = f.ground && !(f.hitstun > 0) && !f.roll && !f.ledge && !f.shielding && !f.move && !inClash && game.state !== 'intro';
+  const calm = f.ground && !(f.hitstun > 0) && !f.roll && !f.ledge && !f.shielding && !f.parry && !f.move && !inClash && game.state !== 'intro';
   const planted = calm && r.want === 'idle';                              // 播放站姿的時候（包含被平台帶著慢慢滑、被擠開）
   const bodyYaw = f.yaw + M.yawOff;
   const mk = () => ({ p: new THREE.Vector3(), from: new THREE.Vector3(), to: new THREE.Vector3(), u: 1, up: 0, init: false });
@@ -3613,6 +4716,7 @@ function updateModel(f, dt, spinX, spinY) {
   lookAtOpp(f, M.lookK);
   // 瞄準要在身體都轉完之後做：最後才把出拳的手臂對準對手的臉
   if (game.clash && game.clash.a === f && game.clash.aim && game.clash.aim.w > 0.01) aimPunch(f, game.clash.v, game.clash.aim.side, game.clash.aim.w);
+  applyPinky(M);                          // 翹小指：最後做，蓋過動作裡的手指
 }
 if (CHAR_MODE === 'box') loadDone.rig = true; else loadRig();
 
@@ -3819,6 +4923,64 @@ function updateCamera(dt) {
     rz * fx * fs + camHit.z + (Math.random() - 0.5) * shake + rz * qx));
   camera.lookAt(camMid.x + camHit.x * 0.55, camMid.y + camLookY * camZoom * dolly * (1 - camFlat), camMid.z + camHit.z * 0.55);
   camera.rotateZ(camHit.roll + Math.sin(tt * 0.23) * 0.004 * calm + qr);
+  cineCamera(dt);
+}
+// ---- 事件鏡頭：KO、整場勝負時（回合開始不切），直接切到側面低角度的遠景，讓「黑暗中被一群人撐起的發光擂台」整個入鏡 ----
+//   比賽進行中不會切（玩起來要看得清楚）。切過去是硬切（電影剪接），之後鏡頭很慢地往前推或繞
+const CINE = { on: false, t: 0, kind: '', az: 0 };
+const _cnP = new THREE.Vector3(), _cnT = new THREE.Vector3();
+function cineWanted() {
+  if (!(P.cineOn >= 0.5) || VIEW_Q) return '';
+  // 用真實時間計（KO 後有慢動作，遊戲時間走得慢）
+  if (game.state === 'roundEnd') { if (CINE.koAt == null) CINE.koAt = performance.now() / 1000; } else CINE.koAt = null;
+  const sinceKO = CINE.koAt == null ? 0 : performance.now() / 1000 - CINE.koAt;
+  if (game.state === 'roundEnd' && P.koFx >= 0.5 && sinceKO < P.koFocus && KOFX.length) return 'focus';
+  if (game.state === 'roundEnd' && (P.koFx >= 0.5 ? sinceKO >= P.koFocus : game.t > P.cineKO)) return 'ko';
+  if (game.state === 'over') return 'over';
+  return '';
+}
+function cineCamera(dt) {
+  const want = cineWanted();
+  if (want !== CINE.kind) {                      // 換鏡頭：從擂台的某一個斜角看過去（每次換一個角度）
+    CINE.kind = want; CINE.on = !!want; CINE.t = 0; CINE.ft = null;
+    if (want) {
+      const w = want === 'intro' ? null : (game.state === 'over' ? game.winner : game.roundWinner);
+      // 勝利者那一側在前景：從勝利者往外的方向看回擂台
+      const base = w ? Math.atan2(w.x, w.z) : CAM_AZIM + camYaw;
+      CINE.az = base + (want === 'intro' ? 0.0 : 0.35);
+    }
+  }
+  if (!CINE.on) return;
+  CINE.t += dt;
+  if (CINE.kind === 'focus') {                    // 跟著出局的人：從目前的鏡頭位置滑順地靠近，看他整個溶解、散成光點
+    const lo = game.roundWinner ? game.roundWinner.opp : null;
+    if (lo) {
+      if (CINE.t <= dt * 1.5) { CINE.from = camera.position.clone(); CINE.fromT = (CINE.lastT || _cnT).clone(); }
+      const p = platform.localToWorld(_cnT.set(lo.x, lo.y + 0.9, lo.z));
+      if (!CINE.ft) CINE.ft = p.clone(); CINE.ft.lerp(p, 1 - Math.exp(-dt * 5));   // 目標平滑跟隨
+      const dir = _cnP.copy(CINE.from).sub(CINE.ft); dir.y = 0; dir.normalize();
+      const want = CINE.ft.clone().addScaledVector(dir, 11 - 1.2 * Math.min(1, CINE.t / 2)).add(new THREE.Vector3(0, 3, 0));
+      const k = THREE.MathUtils.smoothstep(CINE.t, 0, 0.6);
+      camera.position.copy(CINE.from).lerp(want, k);
+      camera.up.set(0, 1, 0); camera.lookAt(CINE.ft);
+      if (Math.abs(camera.fov - 38) > 0.01) { camera.fov = 38; camera.updateProjectionMatrix(); }
+      scene.fog.near = 60; scene.fog.far = 140;
+    }
+    return;
+  }
+  CINE.ft = null;
+  const t = CINE.t, D = P.cineDist;
+  // 很慢的運鏡：開場往前推、KO 稍微繞、整場勝負慢慢環繞
+  const push = CINE.kind === 'intro' ? 1.12 - 0.12 * Math.min(1, t / 4) : CINE.kind === 'over' ? 1 : 1.04 - 0.04 * Math.min(1, t / 2.5);
+  const az = CINE.az + (CINE.kind === 'over' ? t * 0.08 : CINE.kind === 'ko' ? t * 0.03 : 0);
+  const floorY = window.__FLOOR && window.__FLOOR.fit ? window.__FLOOR.y : -3;
+  _cnT.set(0, (floorY + 0.6) * 0.45, 0);                         // 看擂台與底下人群的中間
+  _cnP.set(Math.sin(az) * D * push, P.cineH, Math.cos(az) * D * push);
+  camera.position.copy(_cnP);
+  camera.up.set(0, 1, 0);
+  camera.lookAt(_cnT);
+  if (Math.abs(camera.fov - 30) > 0.01) { camera.fov = 30; camera.updateProjectionMatrix(); }
+  scene.fog.near = D * 2.2; scene.fog.far = D * 4;                 // 遠景時霧往後退，擂台不會被霧蓋黑
 }
 
 // =====================================================================
@@ -3914,10 +5076,12 @@ for (const [title, items] of GROUPS) {
     input.value = P[k];
     input.addEventListener('input', () => {
       P[k] = +input.value; refreshLabels();
-      if (k === 'platW' || k === 'platD' || k === 'thick' || k === 'bearPerEdge') { buildSlab(); buildBearers(); }
+      if (k === 'platW' || k === 'platD' || k === 'thick' || k === 'bearPerEdge' || k === 'platInset' || k === 'wedgeH') { buildSlab(); buildBearers(); buildLightBox(); applyLighting(); FLOOR.fit = false; }
+      if (k === 'floorOn' || k === 'floorReflect') floorApply();
+      if (/^box|^underGlow/.test(k)) { if (k === 'boxH') buildLightBox(); applyLighting(); }
       if (k === 'heriH' || k === 'matWave' || k === 'tatamiMess' || k === 'matDamage') buildMats();
       if (k === 'tatamiWear' || k === 'tatamiMess') { clearTimeout(wearTimer); wearTimer = setTimeout(() => { loadTatami(); if (heriMat.map) heriMat.map.dispose(); heriMat.map = makeHeriTex(); heriMat.needsUpdate = true; }, 200); }   // 貼圖要重新算，拉滑桿停下來才更新
-      if (k === 'brightness') applyLighting();
+      if (k === 'brightness' || k === 'cvLight') applyLighting();
       if (k === 'camDist') resize();
       if (k === 'resScale') {                // 自己動手調解析度：照你調的，不再自動往下降（要恢復自動，把下面那條滑桿拉回 1）
         P.autoRes = 0; if (inputs.autoRes) inputs.autoRes.value = 0; refreshLabels();
@@ -3945,7 +5109,7 @@ function refreshLabels() { for (const k in valueEls) valueEls[k].textContent = P
 document.getElementById('resetParams').addEventListener('click', e => {
   Object.assign(P, DEFAULTS);
   for (const k in inputs) inputs[k].value = P[k];
-  refreshLabels(); buildSlab(); buildBearers(); applyLighting(); resize(); loadTatami(); if (heriMat.map) heriMat.map.dispose(); heriMat.map = makeHeriTex(); e.target.blur();
+  refreshLabels(); buildSlab(); buildBearers(); buildLightBox(); applyLighting(); FLOOR.fit = false; floorApply(); resize(); loadTatami(); if (heriMat.map) heriMat.map.dispose(); heriMat.map = makeHeriTex(); e.target.blur();
 });
 refreshLabels();
 
@@ -4008,6 +5172,7 @@ const TUT_STEPS = [
   { id: 'dash',   keys: ['D', 'D', 'J'] },
   { id: 'air',    keys: ['Space', '+', 'J'] },
   { id: 'slam',   keys: ['Space', '+', 'L'] },
+  { id: 'parry',  keys: ['I'] },
   { id: 'clash',  keys: ['J', '/', 'L'], times: 12 },
 ];
 const ROLL_A_LAG = 0.03, ROLL_A_FROM = 0.1;   // 翻滾後接 A 的空檔（秒）；翻滾開始多久之後按的 A 才會被記下來
@@ -4095,6 +5260,7 @@ function stepTutorial(dt) {
   } else if (id === 'dash') done = !!m && m.id === 'dash';
   else if (id === 'air') done = !!m && m.id === 'air';
   else if (id === 'slam') done = !!m && m.id === 'slam';
+  else if (id === 'parry') done = p.parryOk > 0;                       // 彈反成功（對手的重擊被彈開）
   else if (id === 'clash') {
     if (!game.clash && cpu.locked === 0 && cpu.pct < ROW_PTS - 4) cpu.pct = ROW_PTS - 4;     // 量表固定在「差一格就滿」：不會隨時間減少，沒按滿 12 下也會補回來再試一次
     prog = game.clash ? Math.min(1, (game.clash.presses || 0) / CLASH_NEED) : 0; done = cpu.locked >= 1 && !game.clash;
@@ -4154,10 +5320,19 @@ const _cvPrev = new THREE.Vector3();
 function initCharView() {
   document.body.classList.add('viewonly', 'charview');
   { const pn = document.getElementById('panel'); pn.classList.add('hidden'); pn.classList.remove('open'); }   // 調整面板先收起來（按 H 打開），不擋住角色
-  document.getElementById('viewHelp').innerHTML = '<b>角色預覽</b>　WASD 移動 · 空白鍵 跳躍 · J 攻擊 · K 翻滾 · L 重擊（可按住蓄力）· P 嘲諷<br>'
+  document.getElementById('viewHelp').innerHTML = '<b>角色預覽</b>　WASD 移動 · 空白鍵 跳躍 · J 攻擊 · K 翻滾 · L 重擊（可按住蓄力）· I 彈反 · P 嘲諷<br>'
     + '左鍵拖曳：旋轉　·　滾輪：縮放　·　右鍵拖曳：平移　·　R：回到中央　·　H：調整面板<br>'
-    + '<a href="character.html">T 字站姿／線框</a>　<a id="viewBack2" href="#">回到遊戲</a>';
-  document.getElementById('viewBack2').href = location.pathname.split('/').pop() || 'index.html';
+    + '<a href="character.html">T 字站姿／線框</a>　<a id="viewBack2" href="#">回到遊戲</a><br>'
+    + '角色：<a class="charPick" data-char="">道服</a>　<a class="charPick" data-char="fighter1">第一個鬥士</a>　<a class="charPick" data-char="fighter2">第二個鬥士</a>　<a class="charPick" data-char="fighter3">第三個鬥士</a>';
+  { const q = new URLSearchParams(location.search); q.delete('view'); const qs = q.toString();
+    document.getElementById('viewBack2').href = (location.pathname.split('/').pop() || 'index.html') + (qs ? '?' + qs : ''); }   // 回到遊戲：保留選好的角色
+  // 切換預覽的角色：換網址的 char 參數重新載入（每隻角色的模型、貼圖、動作換算都不同）
+  for (const a of document.querySelectorAll('.charPick')) {
+    const q = new URLSearchParams(location.search);
+    if (a.dataset.char) q.set('char', a.dataset.char); else q.delete('char');
+    a.href = (location.pathname.split('/').pop() || 'index.html') + '?' + q.toString();
+    if ((CHAR_MODE || '') === a.dataset.char) { a.style.fontWeight = '700'; a.style.background = '#111'; a.style.color = '#fff'; }
+  }
   scene.background = new THREE.Color(0xffffff); scene.fog.near = 900; scene.fog.far = 1000;
   P.bloom = 0;                                              // 白底不需要泛光（後製會讓白色變灰）
   for (const o of scene.children) if (!o.isLight && o !== platform && o !== spot.target) o.visible = false;   // 抬轎的人
@@ -4211,7 +5386,49 @@ function stepPlatformView() {
 { const self = location.pathname.split('/').pop() || 'index.html';
   document.getElementById('viewBack').href = self;
   document.getElementById('viewBtn').addEventListener('click', () => { location.href = self + '?view=platform'; });
-  document.getElementById('charBtn').addEventListener('click', () => { location.href = self + '?view=character'; }); }
+  document.getElementById('charBtn').addEventListener('click', () => { location.href = charViewUrl(); }); }
+// ---- 選角 ----
+// 選好之後換網址重新載入：?char= 玩家、?foe= 對手（每隻角色的模型、貼圖、動作換算都要重新讀）
+const PICK_KEYS = ['', 'fighter1', 'fighter2', 'fighter3'];
+const pickSel = { char: CHAR_SPEC[CHAR_MODE] ? CHAR_MODE : '', foe: CHAR_SPEC[FOE_MODE] ? FOE_MODE : '' };
+function gameUrl(extra) {
+  const q = new URLSearchParams(location.search);
+  for (const k of ['char', 'foe']) { if (pickSel[k]) q.set(k, pickSel[k]); else q.delete(k); }
+  q.delete('view'); if (extra) for (const k in extra) q.set(k, extra[k]);
+  const qs = q.toString();
+  return (location.pathname.split('/').pop() || 'index.html') + (qs ? '?' + qs : '');
+}
+function charViewUrl() { return gameUrl({ view: 'character' }); }
+const pickEl = document.getElementById('pick');
+function renderPick() {
+  for (const box of pickEl.querySelectorAll('.opts')) {
+    const side = box.dataset.side; box.innerHTML = '';
+    PICK_KEYS.forEach((k, i) => {
+      const b = document.createElement('button'); b.textContent = tr('charNames')[i];
+      if (pickSel[side] === k) b.classList.add('sel');
+      b.addEventListener('click', () => { pickSel[side] = k; renderPick(); });
+      box.appendChild(b);
+    });
+  }
+}
+let pickWasPaused = false;
+function openPick(v) {
+  if (v) { pickWasPaused = paused; setPaused(true); renderPick(); }
+  else if (!pickWasPaused) setPaused(false);
+  pickEl.classList.toggle('on', v);
+}
+document.getElementById('pickBtn').addEventListener('click', e => { e.currentTarget.blur(); openPick(true); });
+document.getElementById('pickCancel').addEventListener('click', () => {
+  pickSel.char = CHAR_SPEC[CHAR_MODE] ? CHAR_MODE : ''; pickSel.foe = CHAR_SPEC[FOE_MODE] ? FOE_MODE : ''; openPick(false); });
+document.getElementById('pickGo').addEventListener('click', () => { location.href = gameUrl(); });
+document.getElementById('pickView').addEventListener('click', () => { location.href = charViewUrl(); });
+pickEl.addEventListener('click', e => { if (e.target === pickEl) document.getElementById('pickCancel').click(); });
+addEventListener('keydown', e => {                 // 選角畫面開著時，按鍵不傳給遊戲；Esc 關閉、Enter 開始
+  if (!pickEl.classList.contains('on')) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  if (e.code === 'Escape') document.getElementById('pickCancel').click();
+  else if (e.code === 'Enter') document.getElementById('pickGo').click();
+}, true);
 function frame(now) {
   stepAutoRes(now - fpsStat.last, now);
   updateFps(now);
@@ -4266,8 +5483,8 @@ function frame(now) {
   if (CHAR_VIEW) { platform.rotation.set(0, 0, 0); platform.position.y = 0; animateFighter(player, dt); stepCharCam(); draw(); requestAnimationFrame(frame); return; }
   updateGame(dt);
   if (tut.active) stepTutorial(realDt);
-  platform.rotation.set(tilt.x, 0, tilt.z);
-  platform.position.y = tilt.y;
+  floorFit();
+  platformVisual(dt);
   animateBearers(dt);
   for (const f of fighters) { animateFighter(f, dt); updateGrip(f); }   // 對決中被打的人：動作放慢
   updateCamera(realDt);
