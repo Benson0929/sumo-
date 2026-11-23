@@ -111,9 +111,11 @@ I am responsible for the project’s design direction and integration. The onlin
 
 AI and Source Credits
 
-ChatGPT helped review the supplied code and organize this proposal and experiment plan. The networking test described above has not yet produced a recorded result.
+I am developing SUMO with Claude Code, which helps me write and revise the game code. I make the game design decisions and guide the development, including the mechanics, visual direction, and player experience.
 
-Existing asset attributions are included in CREDITS.md, and the tatami texture license is included in assets/tatami/LICENSE.txt. These files should stay with the project source.
+ChatGPT helped review the project code and organize this proposal and experiment plan.
+
+Asset attributions are included in CREDITS.md, and the tatami texture license is included in assets/tatami/LICENSE.txt. These files should stay with the project source.
 
 Initial Privacy and Accessibility Check
 
