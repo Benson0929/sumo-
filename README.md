@@ -2,30 +2,30 @@
 
 SUMO | Final Project Proposal
 1. Project Proposal
-SUMO is a 3D fighting game where the goal is to knock your opponent off the platform. Players move, attack, defend, and recover to the platform. The current version supports matches against a computer opponent. For the final project, I plan to add online two-player matches, allowing players to compete from separate computers.
+SUMO is a 3D fighting game where the goal is to knock your opponent off the platform. Players move, attack, defend, and try to recover when they are launched off. The current build is a single-player game against a computer opponent. For the final project, I want to add online matches between two players on separate computers.
 
-The platform is carried by a group of people. It tilts in response to the fighters’ positions and heavy attacks. When pressure builds up at a corner, that corner temporarily collapses. Players must watch their opponent, their own position, and the changing platform to find opportunities to attack.
+The platform is carried by a group of people. It tilts with the fighters’ positions and heavy attacks, and a corner can temporarily collapse when enough pressure builds up. This makes positioning part of the fight: players have to watch both their opponent and the ground beneath them.
 
-Building on the current web version, I plan to add online multiplayer and refine the character animations, combat feedback, and platform interactions. I want players to feel the weight of each attack, the danger of losing their balance, and the satisfaction of launching an opponent off the platform.
+Alongside online play, I want to improve the character animations, hit feedback, and platform reactions. My aim is to make attacks feel heavy and give players a clear sense of when they are in danger of being knocked out.
 
 Target Audience
 
-Computer users who enjoy fast-paced action games and competing with friends, including players who are new to this type of game.
+People who enjoy fast-paced action games and playing against friends, including newcomers to platform fighting games.
 
 Core Experience
 1. One player creates a room, and the other joins from another computer.
 2. Both players select their characters and review the controls.
 3. They fight, landing attacks to build up their opponent’s damage gauge.
-4. They respond to their opponent’s actions and the platform’s tilt, trying to launch their opponent while avoiding being knocked out.
+4. They use their position and the platform’s tilt to find openings, launch their opponent, and recover when knocked off.
 5. The first player to win two rounds wins the match.
 2. Scope and Plan
 Must
 - Add online two-player matches with room creation, joining, and control instructions.
-- Synchronize player actions, combat results, platform changes, and scores.
+- Keep player actions, hit results, platform changes, and scores consistent on both computers.
 - Preserve the core combat mechanics, platform tilting, and corner collapse.
-- Improve character animations, hit feedback, and the readability of platform changes.
-- Adjust the camera and interface so both players can identify their characters, damage gauges, and scores.
-- Complete the match flow: first to win two rounds, results, and restart.
+- Improve character animations, hit feedback, and the visibility of platform changes.
+- Make characters, damage gauges, and scores easy to identify on both screens.
+- Complete the match flow, including results and restarting.
 Should
 - Add characters or stages.
 - Add extra sound effects and transition sequences.
@@ -34,11 +34,11 @@ Nice
 - Add match settings, such as the number of rounds needed to win.
 Stopping Point
 
-Two players on separate computers can reliably complete an online match in the existing stage, with consistent combat results, clear feedback, and the same final score.
+Two players on separate computers can join the same room and complete a match in the existing stage. Both screens show consistent combat results and the same final score.
 
 Possible Cut
 
-If time is limited, drop the additional stage and prioritize online multiplayer and the core experience.
+If time is limited, I will drop the additional stage and focus on online play and the existing combat experience.
 
 Components and Data
 Component	Main Data
@@ -51,31 +51,72 @@ Match flow	Round state, scores, winner
 
 Tools and Resources
 
-Use HTML, JavaScript, Three.js, and the existing models, animations, and materials. Manage the source code through GitHub and host the frontend on GitHub Pages. Test a separately hosted WebSocket server for communication and shared game state.
-
-3. Small Experiment: Online Multiplayer Synchronization
+The game uses HTML, JavaScript, Three.js, and existing models, animations, and materials. I will use GitHub for the source code and GitHub Pages for the frontend. A separately hosted WebSocket server is the starting approach I plan to test for online play.
+3. Small Experiment: Online Synchronization
 Question
 
 Can two players on separate computers see consistent movement and hit results during a short online interaction?
 
 Prediction
 
-I expect basic movement and one attack to synchronize between both computers, but network delay may affect how responsive the interaction feels.
+I expect basic movement and one attack to synchronize, but network delay may make the controls feel less immediate.
 
 Setup
 1. Build a small networking prototype with two simple characters and one basic attack.
 2. Connect two computers on separate networks to the same room.
-3. Have both players move simultaneously, then take turns attacking.
-4. Check whether both screens agree on character positions, successful hits, and damage.
+3. Have both players move at the same time, then take turns attacking.
+4. Compare character positions, successful hits, and damage values on both screens.
 5. Record both screens and note visible delays or disagreements.
 Actual Result
 
-Pending. No measured result has been recorded yet.
+No test result has been recorded yet. This section will be updated with the first attempt, recordings, and any connection or synchronization problems.
 
 Next Decision
 
-If movement and hit results remain consistent, continue integrating the networking approach into SUMO. If the screens disagree or controls feel too delayed, revise the synchronization approach before adding more combat features.
+If both screens agree on movement and hit results, I will continue integrating this approach into SUMO. If they disagree or the controls feel too delayed, I will revise the synchronization approach before adding more combat features.
 
-Remaining Uncertainty
+What Remains Uncertain
 
-This test will not yet establish how well the connection handles the full game’s platform physics, complex combat, or slower and unstable internet connections.
+This small test will not establish how the full game handles platform physics, complex combat, or unstable connections.
+4. Handoff
+Current Build
+
+The proposal baseline is the existing single-player prototype shared as SUMO_project.zip. Online multiplayer is still planned.
+- Playable build: SUMO
+- Required setup: A computer, keyboard, and browser with WebGL support.
+- Tutorial: Available on first launch and through the Tutorial button.
+Running the Source Locally
+
+From the supplied project folder, run:
+python3 -m http.server 8765
+
+Then open:
+http://localhost:8765/sumo.html
+
+Main Controls
+Input	Action
+WASD	Move
+Space	Jump; press again in the air for the rising special
+J	Attack
+L	Heavy attack; hold to charge
+K	Roll
+I	Parry
+Esc	Pause
+R	Restart
+
+
+Roles and Support
+
+I am responsible for the project’s design direction and integration. The online test will need a second person using another computer on a separate network. We will compare both screens and record connection issues and differences in the match state.
+
+AI and Source Credits
+
+ChatGPT helped review the supplied code and organize this proposal and experiment plan. The networking test described above has not yet produced a recorded result.
+
+Existing asset attributions are included in CREDITS.md, and the tatami texture license is included in assets/tatami/LICENSE.txt. These files should stay with the project source.
+
+Initial Privacy and Accessibility Check
+
+The current controls do not require a camera or microphone. For the online prototype, I plan to use room codes without requiring real names or email addresses. Server logging and data retention still need to be checked during implementation.
+
+The game includes English and Traditional Chinese tutorials. It currently relies on quick button inputs and uses camera movement and flashes. I still need to check text readability, character identification, and options for reducing camera shake and flashing effects.
