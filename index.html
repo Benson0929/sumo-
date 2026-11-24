@@ -57,6 +57,7 @@
   #pick .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   #pick .opts button { background: #262626; color: #eee; border: 1px solid #3a3a3a; border-radius: 6px; padding: 10px 4px; font: inherit; font-size: 13px; cursor: pointer; }
   #pick .opts button:hover { border-color: #888; }
+  #pick .opts.focus { outline: 1px solid #666; outline-offset: 5px; border-radius: 6px; }
   #pick .opts button.sel { background: #d8261b; border-color: #d8261b; color: #fff; font-weight: 700; }
   #pick .acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
   #pick .acts button { background: #333; color: #eee; border: 1px solid #444; border-radius: 6px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; }
@@ -211,7 +212,7 @@ import * as THREE from 'three';
 // =====================================================================
 const I18N = {
   zh: {
-    you: '你', cpu: 'CPU', loading: '載入中…', paused: '暫停', resume: '按 Esc 繼續',
+    you: '你', cpu: 'CPU', loading: '載入中…', paused: '暫停', resume: '按 Esc 繼續<br><span style="font-size:.85em;opacity:.75">手把：≡ 繼續 · Y 重新開始 · ⧉ 幀數表 · X 選角色</span>',
     hint: 'Esc 暫停　·　R 重新開始　·　T 幀數表',
     keysTitle: '操作說明',
     hintKeys: '<b>W A S D</b>　移動（同方向快按兩下 + J = 突進）<br><b>空白鍵</b>　跳躍（空中再按 = 上升技）<br><b>J</b>　攻擊（連按連段／空中迴旋踢）<br>' +
@@ -239,7 +240,7 @@ const I18N = {
     charNames: ['道服', '第一個鬥士', '第二個鬥士'],
   },
   en: {
-    you: 'YOU', cpu: 'CPU', loading: 'Loading…', paused: 'PAUSED', resume: 'Press Esc to resume',
+    you: 'YOU', cpu: 'CPU', loading: 'Loading…', paused: 'PAUSED', resume: 'Press Esc to resume<br><span style="font-size:.85em;opacity:.75">Controller: ≡ resume · Y restart · ⧉ frame data · X characters</span>',
     hint: 'Esc Pause　·　R Restart　·　T Frame Data',
     keysTitle: 'Controls',
     hintKeys: '<b>W A S D</b>　Move (double-tap + J = Dash)<br><b>Space</b>　Jump (again in air = Rising Special)<br><b>J</b>　Attack (combo / air Spin Kick)<br>' +
@@ -1944,7 +1945,49 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => { keys.clear(); if (game.state === 'play') setPaused(true); });
 
-const padPrev = { b: [], flick: false };
+// ---- 手把 ----
+const PAD_DEAD = 0.18;                          // 搖桿死區：小於這個量當作沒推
+const padPrev = { b: [], full: false, calmT: 0, flickT: -1e9, flickDir: [0, 0] };
+function padFor(n) {                            // 第 n 支連上的手把（不管瀏覽器給的編號是幾號）
+  const list = navigator.getGamepads ? [...navigator.getGamepads()].filter(g => g && g.connected) : [];
+  return list[n] || null;
+}
+const pickOpen = () => { const el = document.getElementById('pick'); return !!(el && el.classList.contains('on')); };
+// 選單操作：跟遊戲的物理步分開，每個畫面讀一次（暫停中也要能讀）
+//   Menu ≡ 暫停／繼續、暫停中 Y 重新開始、⧉ View 幀數表、X 選角色；選角畫面：左右換角色、上下換「你／對手」、A 開始、B 取消
+const menuPad = { b: [], dir: '', row: 'char' };
+function pollMenuPad() {
+  requestAnimationFrame(pollMenuPad);
+  const gp = padFor(0); if (!gp) { menuPad.b = []; return; }
+  const b = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5));
+  const hit = i => b(i) && !menuPad.b[i];
+  const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+  const dir = b(14) || ax < -0.6 ? 'L' : b(15) || ax > 0.6 ? 'R' : b(12) || ay < -0.6 ? 'U' : b(13) || ay > 0.6 ? 'D' : '';
+  const newDir = dir && dir !== menuPad.dir ? dir : '';
+  if (pickOpen()) {
+    if (newDir === 'U' || newDir === 'D') menuPad.row = menuPad.row === 'char' ? 'foe' : 'char';
+    if (newDir === 'L' || newDir === 'R') {
+      const i = PICK_KEYS.indexOf(pickSel[menuPad.row]), n = PICK_KEYS.length;
+      pickSel[menuPad.row] = PICK_KEYS[(i + (newDir === 'R' ? 1 : n - 1)) % n];
+    }
+    if (newDir) renderPick();
+    for (const box of document.querySelectorAll('#pick .opts')) box.classList.toggle('focus', box.dataset.side === menuPad.row);
+    if (hit(0)) document.getElementById('pickGo').click();
+    else if (hit(1) || hit(9)) document.getElementById('pickCancel').click();
+  } else if (framesOpen()) {
+    if (hit(8) || hit(9) || hit(1)) toggleFrames(false);
+  } else if (tut.active && hit(9)) endTutorial();
+  else if (hit(9)) setPaused(!paused);
+  else if (paused) {
+    if (hit(3)) { setPaused(false); startMatch(); }
+    else if (hit(8)) toggleFrames(true);
+    else if (hit(2)) { menuPad.row = 'char'; openPick(true); }
+    else if (hit(0)) setPaused(false);
+  }
+  menuPad.dir = dir;
+  for (let i = 0; i < gp.buttons.length; i++) menuPad.b[i] = b(i);
+}
+requestAnimationFrame(pollMenuPad);
 function updateHuman(dt) {
   human.tick(dt);
   let sx = 0, sy = 0;
@@ -1952,20 +1995,36 @@ function updateHuman(dt) {
   sx = Math.max(-1, Math.min(1, sx)); sy = Math.max(-1, Math.min(1, sy));
   human.strongHeld = keys.has('KeyL');
   human.tauntHeld = keys.has('KeyP');
-  // PS 手把（標準配置）：左搖桿移動、✕ 跳躍／上升技、□ 攻擊、△ 重擊、○ 翻滾、R1 嘲諷
-  const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
-  if (gp) {
-    const ax = gp.axes[0] || 0, ay = gp.axes[1] || 0, mag = Math.hypot(ax, ay);
-    if (mag > 0.25) { sx = ax; sy = ay; }
-    const map = { 0: 'jump', 2: 'atk', 3: 'strong', 1: 'roll', 5: 'taunt', 4: 'parry' };   // L1 = 彈反
-    for (const i in map) {
-      const down = !!(gp.buttons[i] && gp.buttons[i].pressed);
-      if (down && !padPrev.b[i]) human.press(map[i], map[i] === 'roll' ? 0.3 : 0.15);
+  // Xbox 手把（瀏覽器的標準配置；PS 手把位置相同）：左搖桿／十字鍵 移動（推一半走、推到底跑）、A 跳躍（空中再按＝上升技）、
+  //   X 攻擊、Y 重擊（按住蓄力；RT 也可以）、B 翻滾（LB 也可以）、RB 彈反、LT 嘲諷（按住繼續跳）；快速把搖桿推到底 + X ＝ 突進
+  const gp = padFor(0);
+  if (gp && !paused && !pickOpen()) {
+    const b = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5));
+    let ax = gp.axes[0] || 0, ay = gp.axes[1] || 0;
+    const dx = (b(15) ? 1 : 0) - (b(14) ? 1 : 0), dy = (b(13) ? 1 : 0) - (b(12) ? 1 : 0);
+    if (dx || dy) { ax = dx; ay = dy; }
+    let mag = Math.hypot(ax, ay);
+    if (mag < PAD_DEAD) mag = 0; else { const k = Math.min(1, (mag - PAD_DEAD) / (0.9 - PAD_DEAD)) / Math.hypot(ax, ay); sx = ax * k; sy = ay * k; }
+    // 彈搖桿：從中間在 0.12 秒內推到底 → 0.4 秒內按 X 就是突進（往推的方向）
+    const now = performance.now();
+    if (mag < 0.3) padPrev.calmT = now;
+    const full = mag > 0.85;
+    if (full && !padPrev.full && now - (padPrev.calmT || 0) < 120) { padPrev.flickT = now; padPrev.flickDir = [ax / mag, ay / mag]; }
+    padPrev.full = full;
+    const MAP = [[0, 'jump'], [2, 'atk'], [3, 'strong'], [7, 'strong'], [1, 'roll'], [4, 'roll'], [5, 'parry'], [6, 'taunt']];
+    for (const [i, act] of MAP) {
+      const down = b(i);
+      if (down && !padPrev.b[i]) {
+        if (act === 'atk' && now - (padPrev.flickT || -1e9) < 400) {
+          const [lx, lz] = screenDir(padPrev.flickDir[0], padPrev.flickDir[1]);
+          human.lungeDir = { x: lx, z: lz }; human.press('lunge'); padPrev.flickT = -1e9;
+        } else human.press(act, act === 'roll' ? 0.3 : 0.15);
+      }
       padPrev.b[i] = down;
     }
-    if (padPrev.b[3]) human.strongHeld = true;
-    if (padPrev.b[5]) human.tauntHeld = true;
-  }
+    if (b(3) || b(7)) human.strongHeld = true;
+    if (b(6)) human.tauntHeld = true;
+  } else padPrev.b = [];
   const l = Math.hypot(sx, sy);
   if (l > 1) { sx /= l; sy /= l; }
   [human.mx, human.mz] = screenDir(sx, sy);      // 螢幕方向 → 平台座標（跟著鏡頭目前的方向）
